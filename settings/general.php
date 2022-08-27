@@ -185,7 +185,8 @@ $choices = ['' => get_string('none'),
   '{thisurl_enc}' => get_string('thisurl_enc', 'filter_filtercodes'),
   '{thisurl}' => get_string('thisurl', 'filter_filtercodes'),
   '{sesskey}' => get_string('sesskey', 'filter_filtercodes'),
-  '%7Bsesskey%7D' => get_string('%7Bsesskey%7D', 'filter_filtercodes'),
+// Throws error about empty string identifier. Commenting out for now
+//  '{%7Bsesskey%7D}' => get_string('%7Bsesskey%7D', 'filter_filtercodes'),
   
  //contactform
  '{wwwcontactform}' => get_string('wwwcontactform', 'filter_filtercodes'),
