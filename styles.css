@@ -1,0 +1,9 @@
+.alert.fc-warning {
+	padding: 0.15rem 0.35rem;
+	display: inline-block;
+	border-radius: 0.25em;
+}
+.alert.fc-warning .icon {
+	margin-right: 0;
+	margin-left: 0.25rem;
+}

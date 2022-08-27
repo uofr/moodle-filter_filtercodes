@@ -648,8 +648,8 @@ class filter_filtercodes extends moodle_text_filter {
                                 $replace['/\{' . $form . '\}/i'] = '';
                             }
                     }else {
-                        $replace['/\{' . $form . '\}/i'] = "<div class=\"alert alert-warning\">
-                        <strong>{{$form}}</strong> This tag is not enabled. </div>";
+                        $replace['/\{' . $form . '\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                        <strong>{{$form}}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                    
                     }
   
@@ -666,8 +666,8 @@ class filter_filtercodes extends moodle_text_filter {
                         $formcode = get_string($form, 'filter_filtercodes');
                         $replace['/\{' . $form . '\}/i'] = $pre . $form . '">' . $formcode . $post;
                     }else {
-                        $replace['/\{' . $form . '\}/i'] = "<div class=\"alert alert-warning\">
-                        <strong>{{$form}}</strong>  This tag is not enabled. </div>";
+                        $replace['/\{' . $form . '\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                        <strong>{{$form}}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                    
                     }
 
@@ -684,8 +684,8 @@ class filter_filtercodes extends moodle_text_filter {
                     $replace['/\{formsesskey\}/i'] = '<input type="hidden" id="sesskey" name="sesskey" value="">';
                     $replace['/\{formsesskey\}/i'] .= '<script>document.getElementById(\'sesskey\').value = M.cfg.sesskey;</script>';
                 }else {
-                    $replace['/\{formsesskey\}/i'] = "<div class=\"alert alert-warning\">
-                    <strong>{formsesskey}</strong> This tag is not enabled. </div>";
+                    $replace['/\{formsesskey\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                    <strong>{formsesskey}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
             
                 }
               
@@ -811,8 +811,8 @@ class filter_filtercodes extends moodle_text_filter {
             $replace['/\{menuadmin\}/i'] = $menu;
             
             }else {
-            $replace['/\{menuadmin\}/i'] = "<div class=\"alert alert-warning\">
-            <strong>{menuadmin}</strong> This tag is not enabled. </div>";
+            $replace['/\{menuadmin\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+            <strong>{menuadmin}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
     
              }
         }
@@ -871,8 +871,8 @@ class filter_filtercodes extends moodle_text_filter {
                     PHP_EOL;
             $replace['/\{menudev\}/i'] = $menu;
             }else {
-                $replace['/\{menudev\}/i'] = "<div class=\"alert alert-warning\">
-                <strong>{menudev}</strong> This tag is not enabled. </div>";
+                $replace['/\{menudev\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                <strong>{menudev}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
         
             }
         }
@@ -1281,8 +1281,8 @@ class filter_filtercodes extends moodle_text_filter {
                     $bytes = @disk_free_space('.');
                     $replace['/\{diskfreespace\}/i'] = $this->humanbytes($bytes);
                 }else {
-                    $replace['/\{diskfreespace\}/i'] = "<div class=\"alert alert-warning\">
-                    <strong>{diskfreespace}</strong> This tag is not enabled. </div>";
+                    $replace['/\{diskfreespace\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                    <strong>{diskfreespace}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                
                 }
                
@@ -1298,8 +1298,8 @@ class filter_filtercodes extends moodle_text_filter {
                 $bytes = @disk_free_space($CFG->dataroot);
                 $replace['/\{diskfreespacedata\}/i'] = $this->humanbytes($bytes);
             }else {
-                $replace['/\{diskfreespacedata\}/i'] = "<div class=\"alert alert-warning\">
-                <strong>{diskfreespacedata}</strong> This tag is not enabled. </div>";
+                $replace['/\{diskfreespacedata\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                <strong>{diskfreespacedata}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
            
             }
            
@@ -1382,8 +1382,8 @@ class filter_filtercodes extends moodle_text_filter {
                     $replace['/\{usercount\}/i'] = $cnt;
                     
                 }else {
-                    $replace['/\{usercount\}/i'] = "<div class=\"alert alert-warning\">
-                    <strong>{usercount}</strong> This tag is not enabled. </div>";
+                    $replace['/\{usercount\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                    <strong>{usercount}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                
                 }
                 
@@ -1429,8 +1429,8 @@ class filter_filtercodes extends moodle_text_filter {
                     $replace['/\{userscountrycount\}/i'] = $count;
                     
                 }else {
-                    $replace['/\{userscountrycount\}/i'] = "<div class=\"alert alert-warning\">
-                    <strong>{userscountrycount}</strong> This tag is not enabled. </div>";
+                    $replace['/\{userscountrycount\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                    <strong>{userscountrycount}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                
                 }
                
@@ -2085,8 +2085,8 @@ class filter_filtercodes extends moodle_text_filter {
                     unset($list);
                         
                     }else {
-                        $replace['/\{mycoursesmenu\}/i'] = "<div class=\"alert alert-warning\">
-                        <strong>{mycoursesmenu}</strong> This tag is not enabled. </div>";
+                        $replace['/\{mycoursesmenu\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                        <strong>{mycoursesmenu}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                    
                     }
 
@@ -2160,8 +2160,8 @@ class filter_filtercodes extends moodle_text_filter {
             if (!restricttag($editon)){
             $replace['/\{editingtoggle\}/i'] = ($PAGE->user_is_editing() ? 'off' : 'on');
             }else {
-                $replace['/\{editingtoggle\}/i'] = "<div class=\"alert alert-warning\">
-                <strong>{editingtoggle}</strong> This tag is not enabled. </div>";
+                $replace['/\{editingtoggle\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                <strong>{editingtoggle}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
         
             }
 
@@ -2184,8 +2184,8 @@ class filter_filtercodes extends moodle_text_filter {
                 }
                 
             }else {
-                $replace['/\{toggleeditingmenu\}/i'] = "<div class=\"alert alert-warning\">
-                <strong>{toggleeditingmenu}</strong> This tag is not enabled. </div>";
+                $replace['/\{toggleeditingmenu\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                <strong>{toggleeditingmenu}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
            
             }
 
@@ -2286,8 +2286,8 @@ class filter_filtercodes extends moodle_text_filter {
                     unset($list);
                     
                 }else {
-                    $replace['/\{categoriesmenu\}/i'] = "<div class=\"alert alert-warning\">
-                    <strong>{categoriesmenu}</strong> This tag is not enabled. </div>";
+                    $replace['/\{categoriesmenu\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                    <strong>{categoriesmenu}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                
                 }
                 
@@ -2330,8 +2330,8 @@ class filter_filtercodes extends moodle_text_filter {
                 unset($list);
                     
                 }else {
-                    $replace['/\{categories0menu\}/i'] = "<div class=\"alert alert-warning\">
-                    <strong>{categories0menu}</strong> This tag is not enabled. </div>";
+                    $replace['/\{categories0menu\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                    <strong>{categories0menu}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                
                 }
                 
@@ -2373,8 +2373,8 @@ class filter_filtercodes extends moodle_text_filter {
                     unset($list);
                     
                 }else {
-                    $replace['/\{categoriesxmenu\}/i'] = "<div class=\"alert alert-warning\">
-                    <strong>{categoriesxmenu}</strong> This tag is not enabled. </div>";
+                    $replace['/\{categoriesxmenu\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                    <strong>{categoriesxmenu}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                
                 }
                
@@ -2482,8 +2482,8 @@ class filter_filtercodes extends moodle_text_filter {
                             $replace['/\{referer\}/i'] = !empty($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
                         }
                     }else {
-                        $replace['/\{referer\}/i'] = "<div class=\"alert alert-warning\"> 
-                        <strong>{referer}</strong> This tag is not enabled </div>";
+                        $replace['/\{referer\}/i'] = "<div class=\"alert alert-warning fc-warning\"> 
+                        <strong>{referer}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                 
                     }
                 
@@ -2498,8 +2498,8 @@ class filter_filtercodes extends moodle_text_filter {
                             $replace['/\{referrer\}/i'] = !empty($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
                         }
                     }else {
-                        $replace['/\{referrer\}/i'] = "<div class=\"alert alert-warning\"> 
-                        <strong>{referrer}</strong> This tag is not enabled </div>";
+                        $replace['/\{referrer\}/i'] = "<div class=\"alert alert-warning fc-warning\"> 
+                        <strong>{referrer}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                 
                     }
                
@@ -2514,8 +2514,8 @@ class filter_filtercodes extends moodle_text_filter {
                     if (!restricttag($root)){
                     $replace['/\{wwwroot\}/i'] = $CFG->wwwroot;
                     }else {
-                        $replace['/\{wwwroot\}/i'] = "<div class=\"alert alert-warning\"> 
-                        <strong>{wwwroot}</strong> This tag is not enabled </div>";
+                        $replace['/\{wwwroot\}/i'] = "<div class=\"alert alert-warning fc-warning\"> 
+                        <strong>{wwwroot}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                 
                     }
                 }
@@ -2540,8 +2540,8 @@ class filter_filtercodes extends moodle_text_filter {
                 $replace['/\{pagepath\}/i'] = $url;
             
         }else {
-                $replace['/\{pagepath\}/i'] = "<div class=\"alert alert-warning\"> 
-                <strong>{pagepath}</strong> This tag is not enabled </div>";
+                $replace['/\{pagepath\}/i'] = "<div class=\"alert alert-warning fc-warning\"> 
+                <strong>{pagepath}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
         
             }
             
@@ -2556,8 +2556,8 @@ class filter_filtercodes extends moodle_text_filter {
                 if (!restricttag($uri)){
                     $replace['/\{thisurl\}/i'] = $url;
                 }else {
-                    $replace['/\{thisurl\}/i'] = "<div class=\"alert alert-warning\"> 
-                    <strong>{thisurl}</strong> This tag is not enabled </div>";
+                    $replace['/\{thisurl\}/i'] = "<div class=\"alert alert-warning fc-warning\"> 
+                    <strong>{thisurl}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
             
                 }
                
@@ -2568,8 +2568,8 @@ class filter_filtercodes extends moodle_text_filter {
                 if (!restricttag($uril)){
                     $replace['/\{thisurl_enc\}/i'] = urlencode($url);
                 }else {
-                    $replace['/\{thisurl_enc\}/i'] = "<div class=\"alert alert-warning\"> 
-                    <strong>{thisurl_enc}</strong> This tag is not enabled </div>";
+                    $replace['/\{thisurl_enc\}/i'] = "<div class=\"alert alert-warning fc-warning\"> 
+                    <strong>{thisurl_enc}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
             
                 }
                 
@@ -2583,8 +2583,8 @@ class filter_filtercodes extends moodle_text_filter {
                 $replace['/\{protocol\}/i'] = 'http' . ($this->ishttps() ? 's' : '');
             
         }else {
-                $replace['/\{protocol\}/i'] = "<div class=\"alert alert-warning\"> 
-                <strong>{protocol}</strong> This tag is not enabled </div>";
+                $replace['/\{protocol\}/i'] = "<div class=\"alert alert-warning fc-warning\"> 
+                <strong>{protocol}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
         
             }
            
@@ -2598,8 +2598,8 @@ class filter_filtercodes extends moodle_text_filter {
                 $replace['/\{ipaddress\}/i'] = getremoteaddr();
             
             }else {
-                $replace['/\{ipaddress\}/i'] = "<div class=\"alert alert-warning\"> 
-                <strong>{ipaddress}</strong> This tag is not enabled </div>";
+                $replace['/\{ipaddress\}/i'] = "<div class=\"alert alert-warning fc-warning\"> 
+                <strong>{ipaddress}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
         
             }
 
@@ -2615,8 +2615,8 @@ class filter_filtercodes extends moodle_text_filter {
                 $replace['/\{sesskey\}/i'] = sesskey();
             
             }else {
-                $replace['/\{sesskey\}/i'] = "<div class=\"alert alert-warning\"> 
-                <strong>{sesskey}</strong> This tag is not enabled </div>";
+                $replace['/\{sesskey\}/i'] = "<div class=\"alert alert-warning fc-warning\"> 
+                <strong>{sesskey}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
         
             }
             
@@ -2628,8 +2628,8 @@ class filter_filtercodes extends moodle_text_filter {
                 $replace['/%7Bsesskey%7D/i'] = sesskey();
             
             }else {
-                $replace['/%7Bsesskey%7D/i'] = "<div class=\"alert alert-warning\"> 
-                <strong>{%7Bsesskey%7D}</strong> This tag is not enabled </div>";
+                $replace['/%7Bsesskey%7D/i'] = "<div class=\"alert alert-warning fc-warning\"> 
+                <strong>{%7Bsesskey%7D}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
         
             }
            
@@ -2660,8 +2660,8 @@ class filter_filtercodes extends moodle_text_filter {
                     if (!restricttag($recap)){
                         $replace['/\{recaptcha\}/i'] = $this->getrecaptcha();
                     }else {
-                        $replace['/\{recaptcha\}/i'] = "<div class=\"alert alert-warning\">
-                        <strong>{recaptcha}</strong> This tag is not enabled. </div>";
+                        $replace['/\{recaptcha\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                        <strong>{recaptcha}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                    
                     }
           
@@ -3519,8 +3519,8 @@ class filter_filtercodes extends moodle_text_filter {
                     require($CFG->dirroot . '/filter/filtercodes/version.php');
                     $replace['/\{filtercodes\}/i'] = "$plugin->release ($plugin->version)";
                 }else {
-                    $replace['/\{filtercodes\}/i'] = "<div class=\"alert alert-warning\">
-                    <strong>{filtercodes}</strong> This tag is not enabled. </div>";
+                    $replace['/\{filtercodes\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                    <strong>{filtercodes}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                
                 }
                
@@ -3555,8 +3555,8 @@ class filter_filtercodes extends moodle_text_filter {
                         $changed = true;
                     }
             }else {
-                $replace['/\{urlencode\}/i'] = "<div class=\"alert alert-warning\">
-                <strong>{urlencode}</strong> This tag is not enabled. </div>";
+                $replace['/\{urlencode\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                <strong>{urlencode}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
            
             }
            
