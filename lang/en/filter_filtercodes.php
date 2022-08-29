@@ -99,7 +99,7 @@ $string['wwwcontactform'] = '{wwwcontactform}';
 $string['urlencode'] = '{urlencode}';
 $string['thisurl_enc'] = '{thisurl_enc}';
 $string['thisurl'] = '{thisurl}';
-$string['%7Bsesskey%7D'] = '{%7Bsesskey%7D}';
+$string['%7Bsesskey%7D'] = '%7Bsesskey%7D';
 
 // contactform
 $string['formquickquestions'] = '{formquickquestion}';

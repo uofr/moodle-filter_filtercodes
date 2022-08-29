@@ -2629,7 +2629,7 @@ class filter_filtercodes extends moodle_text_filter {
             
             }else {
                 $replace['/%7Bsesskey%7D/i'] = "<div class=\"alert alert-warning fc-warning\"> 
-                <strong>{%7Bsesskey%7D}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
+                <strong>%7Bsesskey%7D</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
         
             }
            
