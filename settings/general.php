@@ -201,7 +201,7 @@ $choices = ['' => get_string('none'),
   '{thisurl_enc}' => get_string('thisurl_enc', 'filter_filtercodes'),
   '{thisurl}' => get_string('thisurl', 'filter_filtercodes'),
   '{sesskey}' => get_string('sesskey', 'filter_filtercodes'),
- '%7Bsesskey%7D' => get_string('%7Bsesskey%7D', 'filter_filtercodes'),
+ '%7Bsesskey%7D' => '%7Bsesskey%7D',
   
  //contactform
  '{wwwcontactform}' => get_string('wwwcontactform', 'filter_filtercodes'),
