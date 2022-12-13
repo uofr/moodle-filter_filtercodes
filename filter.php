@@ -33,8 +33,6 @@ use Endroid\QrCode\QrCode;
 
 require_once($CFG->dirroot . '/course/renderer.php');
 
-
-
 /**
  * Extends the moodle_text_filter class to provide plain text support for new tags.
  *
@@ -68,7 +66,6 @@ class filter_filtercodes extends moodle_text_filter {
             $this->archetypes[$archetype] = (object) ['level' => $level, 'roleids' => $roleids];
         }
     }
-  
 
     /**
      * Determine if any of the user's roles includes specified archetype.
@@ -213,6 +210,24 @@ class filter_filtercodes extends moodle_text_filter {
             }
         }
         return in_array(strtolower($roleshortname), $list);
+    }
+
+    /**
+     * Returns the URL of a blank Avatar as a square image.
+     *
+     * @param integer $size Width of desired image in pixels.
+     * @return MOODLE_URL URL to image of avatar image.
+     */
+    private function getblankavatarurl($size) {
+        global $PAGE, $CFG;
+        $img = 'u/' . ($size > 100 ? 'f3' : ($size > 35 ? 'f1' : 'f2'));
+        $renderer = $PAGE->get_renderer('core');
+        if ($CFG->branch >= 33) {
+            $url = $renderer->image_url($img);
+        } else {
+            $url = $renderer->pix_url($img); // Deprecated as of Moodle 3.3.
+        }
+        return new moodle_url($url);
     }
 
     /**
@@ -587,9 +602,6 @@ class filter_filtercodes extends moodle_text_filter {
         return $progresspercent;
     }
 
-
-
-
     /**
      * Main filter function called by Moodle.
      *
@@ -652,10 +664,7 @@ class filter_filtercodes extends moodle_text_filter {
                         <strong>{{$form}}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
                    
                     }
-  
-                    
                 }
-               
             }
             // These work regardless of whether you are logged-in or not.
             foreach (['formcontactus', 'formcourserequest', 'formsupport'] as $form) {
@@ -922,21 +931,36 @@ class filter_filtercodes extends moodle_text_filter {
                         'phone' => get_string('phone')
                 ];
                 if ($cardformat == 'verbose') {
+                    if (empty($CFG->enablegravatar)) {
+                        $blankavatarurl = $this->getblankavatarurl(150);
+                    }
                     foreach ($users as $user) {
                         $cards .= '<div class="clearfix mb-4">';
                         $name = '<h3 class="h4">' . get_string('fullnamedisplay', null, $user) . '</h3>';
                         $cards .= $this->userlink($clinktype, $user, $name);
-                        $cards .= $OUTPUT->user_picture($user, ['size' => '150', 'class' => 'img-fluid pull-left p-1 border mr-4',
-                                'link' => false, 'visibletoscreenreaders' => false]);
+                        if (empty($user->picture) && empty($CFG->enablegravatar)) {
+                            $cards .= '<img src="' . $blankavatarurl . '" class="img-fluid" width="150" height="150" alt="">';
+                        } else {
+                            $cards .= $OUTPUT->user_picture($user, ['size' => '150',
+                                    'class' => 'img-fluid pull-left p-1 border mr-4',
+                                    'link' => false, 'visibletoscreenreaders' => false]);
+                        }
                         $cards .= format_string($user->description);
                         $cards .= '</div><hr>';
                     }
                 } else {
+                    if (empty($CFG->enablegravatar)) {
+                        $blankavatarurl = $this->getblankavatarurl(250);
+                    }
                     $cards .= '<div class="row" id="fc_teamcards" style="width:99%;">';
                     foreach ($users as $user) {
                         $cards .= '<div class="col-sm-6 col-md-4 col-lg-3 col-xl-' . (empty($narrowpage) ? 4 : 3) . ' mt-3">';
-                        $cards .= $OUTPUT->user_picture($user, ['size' => '250', 'class' => 'img-fluid', 'link' => false,
-                                'visibletoscreenreaders' => false]);
+                        if (empty($user->picture) && empty($CFG->enablegravatar)) {
+                            $cards .= '<img src="' . $blankavatarurl . '" class="img-fluid" width="250" height="250" alt="">';
+                        } else {
+                            $cards .= $OUTPUT->user_picture($user, ['size' => '250', 'class' => 'img-fluid',
+                                    'link' => false, 'visibletoscreenreaders' => false]);
+                        }
                         $name = '<br><h3 class="h5 font-weight-bold d-inline">' . get_string('fullnamedisplay', null, $user) .
                                 '</h3>';
                         $cards .= $this->userlink($clinktype, $user, $name);
@@ -1032,11 +1056,12 @@ class filter_filtercodes extends moodle_text_filter {
                         $profiledata = $DB->get_records_menu('user_info_data', ['userid' => $USER->id], '', 'fieldid, data');
                     }
                 }
+                $showhidden = get_config('filter_filtercodes', 'showhiddenprofilefields');
                 foreach ($profilefields as $field) {
                     // If the tag exists and is not set to "Not visible" in the custom profile field's settings.
                     if ($isuser
                             && stripos($text, '{profile_field_' . $field->shortname . '}') !== false
-                            && $field->visible != '0') {
+                            && ($field->visible != '0' || !empty($showhidden))) {
                         $data = isset($profiledata[$field->id]) ? trim($profiledata[$field->id]) : '' . PHP_EOL;
                         switch ($field->datatype) { // Format data for some field types.
                             case 'datetime':
@@ -1486,7 +1511,7 @@ class filter_filtercodes extends moodle_text_filter {
             }
 
             // Tag: {coursecontacts}.
-            if (stripos($text, '{coursecontacts') !== false ) {
+            if (stripos($text, '{coursecontacts') !== false) {
                 $contacts = '';
                 // If course (not site pages) with contacts.
                 if ($PAGE->course->id) {
@@ -1495,8 +1520,6 @@ class filter_filtercodes extends moodle_text_filter {
                     if ($course->has_course_contacts()) {
 
                         // Get tag settings.
-                       
-                       
                         $cshowpic = get_config('filter_filtercodes', 'coursecontactshowpic');
                         $cshowdesc = get_config('filter_filtercodes', 'coursecontactshowdesc');
                         $clinktype = get_config('filter_filtercodes', 'coursecontactlinktype');
@@ -1601,6 +1624,20 @@ class filter_filtercodes extends moodle_text_filter {
                     $cnt = \user_get_total_participants($PAGE->course->id);
                 }
                 $replace['/\{courseparticipantcount\}/i'] = $cnt;
+            }
+
+            // Tag: {coursecount students}.
+            if (stripos($text, '{coursecount students}') !== false) {
+                if ($CFG->branch >= 32) {
+                    $coursecontext = context_course::instance($PAGE->course->id);
+                    $role = $DB->get_record('role', array('shortname' => 'student'));
+                    $students = get_role_users($role->id, $coursecontext);
+                    $cnt = count($students);
+                    unset($students);
+                } else {
+                    $cnt = '';
+                }
+                $replace['/\{coursecount students\}/i'] = $cnt;
             }
 
             // Tag: {courseid}.
@@ -1830,7 +1867,20 @@ class filter_filtercodes extends moodle_text_filter {
                 $replace['/\{coursesactive\}/i'] = $cnt;
             }
 
-            // Tag: {courseprogress} and {courseprogressbar}. Display course progress percentage and a course progress bar.
+            // Tag: {coursegrade}. Overall grade in a courses.
+            if (stripos($text, '{coursegrade}') !== false) {
+                require_once($CFG->libdir . '/gradelib.php');
+                require_once($CFG->dirroot . '/grade/querylib.php');
+                $gradeobj = grade_get_course_grade($USER->id, $PAGE->course->id);
+                $grade = 0;
+                if (!empty($grademax = floatval($gradeobj->item->grademax))) {
+                    $grade = (int)($gradeobj->grade / floatval($grademax) * 100) ?? 0;
+                }
+                $replace['/\{coursegrade\}/i'] = $grade;
+            }
+
+            // Tag: {courseprogress} and {courseprogressbar}.
+            // Course progress percentage as text.
             if (stripos($text, '{courseprogress') !== false) {
                 $progress = $this->completionprogress();
 
@@ -1965,65 +2015,6 @@ class filter_filtercodes extends moodle_text_filter {
                 }
 
             }
-        }
-
-        // Tag: {chart <type> <value> <title>} - Easily display a chart in one of several styles.
-        if (stripos($text, '{chart ') !== false && $CFG->branch >= 32) {
-            global $OUTPUT;
-            preg_match_all('/\{chart\s(\w+)\s([0-9]+)\s(.*)\}/isuU', $text, $matches, PREG_SET_ORDER);
-            $matches = array_unique($matches, SORT_REGULAR);
-            foreach ($matches as $match) {
-                $type = $match[1]; // Chart type: radial, pie or progressbar.
-                $value = $match[2]; // Value between 0 and 100.
-                $title = $match[3]; // Text label.
-                $percent = get_string('percents', '', $value);
-                switch($type) { // Type of chart.
-                    case 'radial': // Tag: {chart radial 99 Label to be displayed} - Display a radial (circle) chart.
-                        $chart = new \core\chart_pie();
-                        $chart->set_doughnut(true); // Calling set_doughnut(true) we display the chart as a doughnut.
-                        if (!empty($title)) {
-                            $chart->set_title($title);
-                        }
-                        $series = new \core\chart_series('Percentage', [min($value, 100), 100 - min($value, 100)]);
-                        $chart->add_series($series);
-                        $chart->set_labels(['Completed', 'Remaining']);
-                        if ($CFG->branch >= 39) {
-                            $chart->set_legend_options(['display' => false]);  // Hide chart legend.
-                        }
-                        $html = $OUTPUT->render_chart($chart, false);
-                        break;
-                    case 'pie': // Tag: {chart pie 99 Label to be displayed} - Display a pie chart.
-                        $chart = new \core\chart_pie();
-                        $chart->set_doughnut(false); // Calling set_doughnut(true) we display the chart as a doughnut.
-                        if (!empty($title)) {
-                            $chart->set_title($title);
-                        }
-                        $series = new \core\chart_series('Percentage', [min($value, 100), 100 - min($value, 100)]);
-                        $chart->add_series($series);
-                        $chart->set_labels(['Completed', 'Remaining']);
-                        if ($CFG->branch >= 39) {
-                            $chart->set_legend_options(['display' => false]);  // Hide chart legend.
-                        }
-                        $html = $OUTPUT->render_chart($chart, false);
-                        break;
-                    case 'progressbar': // Tag: {chart progressbar 99 Label to be displayed} - Display a horizontal progres bar.
-                        $html = '
-                        <div class="progress mb-0">
-                            <div class="fc-progress progress-bar bar" role="progressbar" aria-valuenow="' . $value
-                                . '" style="width: ' . $value . '%" aria-valuemin="0" aria-valuemax="100">
-                            </div>
-                        </div>';
-                        if (!empty($title)) {
-                            $html .= '<div class="small">' . get_string('chartprogressbarlabel', 'filter_filtercodes',
-                                    ['label' => $title, 'value' => $percent]) . '</div>';
-                        }
-                        break;
-                    default:
-                        $html = '';
-                }
-                $replace['/\{chart ' . $type . ' ' . $value . ' ' . preg_quote($title) . '\}/isuU'] = $html;
-            }
-            unset($chart, $matches, $html, $value, $title);
         }
 
         // These tags: {mycourses} and {mycoursesmenu} and {mycoursescards}.
@@ -2188,8 +2179,6 @@ class filter_filtercodes extends moodle_text_filter {
                 <strong>{toggleeditingmenu}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
            
             }
-
-            
         }
 
         // Tags starting with: {categor...}.
@@ -2461,7 +2450,6 @@ class filter_filtercodes extends moodle_text_filter {
                 }
                 // Format groups into a language string.
                 $mygroups = $this->formatlist($mygroups);
-               
             }
             $replace['/\{mygroups\}/i'] = $mygroups;
             if (!$mygroups) {
@@ -2488,7 +2476,6 @@ class filter_filtercodes extends moodle_text_filter {
                     }
                 
             }
-
             if (stripos($text, '{referrer}') !== false) {
                 $refalias = "{referrer}";
                     if (!restricttag($refalias)){
@@ -2506,7 +2493,7 @@ class filter_filtercodes extends moodle_text_filter {
             }
         }
 
-        if (stripos($text, '{www') !== false ) {
+        if (stripos($text, '{www') !== false) {
             // Tag: {wwwroot}.
             
                 if (stripos($text, '{wwwroot}') !== false)  {
@@ -2607,7 +2594,6 @@ class filter_filtercodes extends moodle_text_filter {
            
         }
 
-        // Any {sesskey} or %7Bsesskey%7D tags.
         // Tag: {sesskey}.
         if (stripos($text, '{sesskey}') !== false) {
             $sessk = "{sesskey}";
@@ -2692,6 +2678,28 @@ class filter_filtercodes extends moodle_text_filter {
             if ($newtext !== false) {
                 $text = $newtext;
                 $changed = true;
+            }
+        }
+
+        // Tag: {courseunenrolurl}.
+        if (stripos($text, '{courseunenrolurl}') !== false) {
+            require_once($CFG->libdir . '/enrollib.php');
+            $course = $PAGE->course;
+            $coursecontext = context_course::instance($course->id);
+            $replace['/\{courseunenrolurl\}/i'] = '';
+            if ($course->id != SITEID && isloggedin() && !isguestuser() && is_enrolled($coursecontext)) {
+                $plugins   = enrol_get_plugins(true);
+                $instances = enrol_get_instances($course->id, true);
+                foreach ($instances as $instance) {
+                    if (!isset($plugins[$instance->enrol])) {
+                        continue;
+                    }
+                    $plugin = $plugins[$instance->enrol];
+                    if ($unenrollink = $plugin->get_unenrolself_link($instance)) {
+                        $replace['/\{courseunenrolurl\}/i'] = $unenrollink;
+                        break;
+                    }
+                }
             }
         }
 
@@ -2800,6 +2808,7 @@ class filter_filtercodes extends moodle_text_filter {
         }
 
         // Tag: {details}{/details}.
+        // Tag: {details style1}{/details}.
         // Tag: {summary}{/summary}.
         if (stripos($text, '{/details}') !== false) {
             $replace['/\{details\}/i'] = '<details>';
@@ -2807,6 +2816,11 @@ class filter_filtercodes extends moodle_text_filter {
             $replace['/\{\/details\}/i'] = '</details>';
             $replace['/\{summary\}/i'] = '<summary>';
             $replace['/\{\/summary\}/i'] = '</summary>';
+            if (preg_match_all('/\{details ([a-zA-Z0-9-_ ]+)\}/', $text, $matches) !== 0) {
+                foreach ($matches[1] as $cssclass) {
+                    $replace['/\{details ' . $cssclass . '\}/i'] = '<details class="' . $cssclass . '">';
+                }
+            }
         }
 
         // Conditional block tags.
@@ -3323,6 +3337,33 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
+            // Tag: {ifnotingroup id|idnumber}.
+            if (stripos($text, '{ifnotingroup') !== false) {
+                static $mygroupslist;
+                if (!isset($mygroupslist)) { // Fetch my groups.
+                    $mygroupslist = groups_get_all_groups($PAGE->course->id, $USER->id);
+                }
+                $re = '/{ifnotingroup\s+(.*)\}(.*)\{\/ifnotingroup\}/isuU';
+                $found = preg_match_all($re, $text, $matches);
+                if ($found > 0) {
+                    foreach ($matches[1] as $groupid) {
+                        $key = '/{ifnotingroup\s+' . $groupid . '\}(.*)\{\/ifnotingroup\}/isuU';
+                        $ismember = false;
+                        foreach ($mygroupslist as $group) {
+                            if ($groupid == $group->id || $groupid == $group->idnumber) {
+                                $ismember = true;
+                                break;
+                            }
+                        }
+                        if ($ismember) { // Remove the ifnotingroup tags and content.
+                            $replace[$key] = '';
+                        } else { // Just remove the tags and keep the content.
+                            $replace[$key] = '$1';
+                        }
+                    }
+                }
+            }
+
             // Tag: {iftenant idnumber|tenantid}. Only for Moodle Workplace.
             if (stripos($text, '{iftenant') !== false) {
                 if (class_exists('tool_tenant\tenancy')) {
@@ -3528,6 +3569,7 @@ class filter_filtercodes extends moodle_text_filter {
               $replace['/\{filtercodes\}/i'] = '';
             }
         }
+
         //
         // Apply all of the filtercodes at once.
         //
@@ -3535,10 +3577,75 @@ class filter_filtercodes extends moodle_text_filter {
         $newtext = null;
         if (count($replace) > 0) {
             $newtext = preg_replace(array_keys($replace), array_values($replace), $text);
+            $replace = [];
         }
         if (!is_null($newtext)) {
             $text = $newtext;
             $changed = true;
+        }
+
+        // Tag: {chart <type> <value> <title>} - Easily display a chart in one of several styles.
+        if (stripos($text, '{chart ') !== false && $CFG->branch >= 32) {
+            global $OUTPUT;
+            preg_match_all('/\{chart\s(\w+)\s([0-9]+)\s(.*)\}/isuU', $text, $matches, PREG_SET_ORDER);
+            $matches = array_unique($matches, SORT_REGULAR);
+            foreach ($matches as $match) {
+                $type = $match[1]; // Chart type: radial, pie or progressbar.
+                $value = $match[2]; // Value between 0 and 100.
+                $title = $match[3]; // Text label.
+                $percent = get_string('percents', '', $value);
+                switch($type) { // Type of chart.
+                    case 'radial': // Tag: {chart radial 99 Label to be displayed} - Display a radial (circle) chart.
+                        $chart = new \core\chart_pie();
+                        $chart->set_doughnut(true); // Calling set_doughnut(true) we display the chart as a doughnut.
+                        if (!empty($title)) {
+                            $chart->set_title($title);
+                        }
+                        $series = new \core\chart_series('Percentage', [min($value, 100), 100 - min($value, 100)]);
+                        $chart->add_series($series);
+                        $chart->set_labels(['Completed', 'Remaining']);
+                        if ($CFG->branch >= 39) {
+                            $chart->set_legend_options(['display' => false]);  // Hide chart legend.
+                        }
+                        $html = $OUTPUT->render_chart($chart, false);
+                        break;
+                    case 'pie': // Tag: {chart pie 99 Label to be displayed} - Display a pie chart.
+                        $chart = new \core\chart_pie();
+                        $chart->set_doughnut(false); // Calling set_doughnut(true) we display the chart as a doughnut.
+                        if (!empty($title)) {
+                            $chart->set_title($title);
+                        }
+                        $series = new \core\chart_series('Percentage', [min($value, 100), 100 - min($value, 100)]);
+                        $chart->add_series($series);
+                        $chart->set_labels(['Completed', 'Remaining']);
+                        if ($CFG->branch >= 39) {
+                            $chart->set_legend_options(['display' => false]);  // Hide chart legend.
+                        }
+                        $html = $OUTPUT->render_chart($chart, false);
+                        break;
+                    case 'progressbar': // Tag: {chart progressbar 99 Label to be displayed} - Display a horizontal progres bar.
+                        $html = '
+                        <div class="progress mb-0">
+                            <div class="fc-progress progress-bar bar" role="progressbar" aria-valuenow="' . $value
+                                . '" style="width: ' . $value . '%" aria-valuemin="0" aria-valuemax="100">
+                            </div>
+                        </div>';
+                        if (!empty($title)) {
+                            $html .= '<div class="small">' . get_string('chartprogressbarlabel', 'filter_filtercodes',
+                                    ['label' => $title, 'value' => $percent]) . '</div>';
+                        }
+                        break;
+                    default:
+                        $html = '';
+                }
+                $replace['/\{chart ' . $type . ' ' . $value . ' ' . preg_quote($title) . '\}/isuU'] = $html;
+                $newtext = preg_replace(array_keys($replace), array_values($replace), $text);
+                if (!is_null($newtext)) {
+                    $text = $newtext;
+                    $changed = true;
+                }
+            }
+            unset($chart, $matches, $html, $value, $title);
         }
 
         // Tag: {urlencode}content{/urlencode}.
@@ -3559,7 +3666,6 @@ class filter_filtercodes extends moodle_text_filter {
                 <strong>{urlencode}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
            
             }
-           
         }
 
         // Tag: {qrcode}{/qrcode}.
@@ -3664,9 +3770,6 @@ class filter_filtercodes extends moodle_text_filter {
 
         return $text;
     }
-
-
-
 }
 
 function restricttag($text) {
