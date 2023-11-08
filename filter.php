@@ -716,6 +716,15 @@ class filter_filtercodes extends moodle_text_filter {
 
         return $progresspercent;
     }
+    /**
+     * Date valitation called by ifbetween, ifbefore and ifafter tags.
+     * dapiawej November 8, 2023
+     * @return bool if true or false
+     */
+    public function validateDate($date, $format = 'd/m/Y H:i:s') {
+        $d = DateTime::createFromFormat($format, $date);
+        return $d && $d->format($format) === $date;
+    }
 
     /**
      * Main filter function called by Moodle.
@@ -2403,6 +2412,150 @@ class filter_filtercodes extends moodle_text_filter {
             }
             unset($now);
         }
+        /**
+         * New tag {ifbetween}
+         * Joel Dapiawen November 6, 2023
+         * Tag: {ifbetween} filtercode to hide and show a content if a date falls within a certain range
+         */
+        if (stripos($text, '{ifbetween') !== false) {
+
+        // Find all {ifbetween} tags and their corresponding content
+        $matches = [];
+        preg_match_all('/{ifbetween\s+([\d\/\s:]+),\s+([\d\/\s:]+)}(.*?){\/ifbetween}/is', $text, $matches, PREG_SET_ORDER);
+        $currentTimestamp = time();
+            foreach ($matches as $match) {
+                $startDate = $match[1];
+                $endDate = $match[2];
+                $content = $match[3];
+            
+                // If the start date does not include a time, add a default time (e.g., 00:00:00)
+                if (!preg_match('/\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}:\d{1,2}/', $startDate)) {
+                    $startDate .= ' 00:00:00';
+                }
+                // If the end date does not include a time, add a default time (e.g., 23:59:59)
+                if (!preg_match('/\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}:\d{1,2}/', $endDate)) {
+                    $endDate .= ' 23:59:59';
+                }
+                 // Validate the date format using the validateDate function
+                if (!self::validateDate($startDate) || !self::validateDate($endDate)) {
+                     $errorFeedback = "<div class ='alert alert-danger'> Invalid date format -";
+                        
+                        if (!self::validateDate($startDate)) {
+                            $errorFeedback .= " Start Date: $startDate";
+                        }
+                        
+                        if (!self::validateDate($endDate)) {
+                            if (!self::validateDate($startDate)) {
+                                $errorFeedback .= " and";
+                            }
+                            $errorFeedback .= " End Date: $endDate";
+                        }
+                        
+                        $errorFeedback .= ", Please use the format: dd/mm/yyyy hh:mm:ss  </div>";
+                        
+                        $text = str_replace($match[0], $errorFeedback, $text);
+                } else {
+                $startDatestamp = date_create_from_format('d/m/Y H:i:s', $startDate);
+                $endDatestamp = date_create_from_format('d/m/Y H:i:s', $endDate);
+            
+                if ($currentTimestamp >= $startDatestamp->getTimestamp() && $currentTimestamp <= $endDatestamp->getTimestamp()) {
+                    $text = str_replace($match[0], $content, $text);
+                } else {
+                    $text = str_replace($match[0], '', $text);
+                }
+                }
+            }
+            
+        }
+        /**
+         * New tag {ifbefore}
+         * Joel Dapiawen November 6, 2023
+         * Tag: {ifbefore} filtercode to hide and show a content if a date falls before a certain date.
+         */
+       
+        if (stripos($text, '{ifbefore') !== false) {
+            // Find all {ifbetween} tags and their corresponding content
+        $matches = [];
+        preg_match_all('/{ifbefore\s+([\d\/\s:]+)}(.*?){\/ifbefore}/is', $text, $matches, PREG_SET_ORDER);
+        $currentTimestamp = time();
+            foreach ($matches as $match) {
+                $beforeDate = $match[1];
+                $content = $match[2];
+
+                  // If the start date does not include a time, add a default time (e.g., 00:00:00)
+                   if (!preg_match('/\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}:\d{1,2}/', $beforeDate)) {
+                            $beforeDate .= ' 00:00:00';
+                     }
+               
+                 // Validate the date format using the validateDate function
+                if (!self::validateDate($beforeDate)) {
+                     $errorFeedback = "<div class ='alert alert-danger'> Invalid date format -";
+                        
+                        if (!self::validateDate($beforeDate)) {
+                            $errorFeedback .= " Before date: $beforeDate";
+                        }
+                        $errorFeedback .= ", Please use the format: dd/mm/yyyy hh:mm:ss </div>";
+                        
+                        $text = str_replace($match[0], $errorFeedback, $text);
+                } else {
+
+                $beforeDatestamp = date_create_from_format('d/m/Y H:i:s', $beforeDate);
+                if ($beforeDatestamp) {
+
+                    if ($currentTimestamp < $beforeDatestamp->getTimestamp()) {
+                         $text = str_replace($match[0], $content, $text);
+                    } else {
+                         $text = str_replace($match[0], '', $text);
+                        
+                    }
+                }
+
+            } 
+        
+        }
+        }
+        /**
+         * New tag {ifafter}
+         * Joel Dapiawen November 6, 2023
+         * Tag: {ifafter} filtercode to hide and show a content if a date falls after a certain date.
+         */
+        if (stripos($text, '{ifafter') !== false) {
+        $matches = [];
+        preg_match_all('/{ifafter\s+([\d\/\s:]+)}(.*?){\/ifafter}/is', $text, $matches, PREG_SET_ORDER);
+        $currentTimestamp = time();
+            foreach ($matches as $match) {
+                $ifafterDate = $match[1];
+                $content = $match[2];
+                
+                 // If the start date does not include a time, add a default time (e.g., 00:00:00)
+                 if (!preg_match('/\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}:\d{1,2}/', $ifafterDate)) {
+                    $ifafterDate .= ' 00:00:00';
+                 }
+                  // Validate the date format using the validateDate function
+                if (!self::validateDate($ifafterDate)) {
+                      $errorFeedback = "<div class ='alert alert-danger'> Invalid date format -";
+                        
+                        if (!self::validateDate($ifafterDate)) {
+                            $errorFeedback .= " After date: $ifafterDate";
+                        }
+                        $errorFeedback .= ", Please use the format: dd/mm/yyyy hh:mm:ss </div>";
+                        
+                        $text = str_replace($match[0], $errorFeedback, $text);
+                } else {
+                $ifafterDatestamp = date_create_from_format('d/m/Y H:i:s', $ifafterDate);
+                if ($ifafterDatestamp) {
+            
+                    if ($currentTimestamp > $ifafterDatestamp->getTimestamp()) {
+                         $text = str_replace($match[0], $content, $text);
+                    } else {
+                         $text = str_replace($match[0], '', $text);
+                    }
+                }
+            }
+        }
+        }
+      
+
 
         // Tag: {editingmode}. Is "off" if in edit page mode. Otherwise "on". Useful for creating Turn Editing On/Off links.
         if (stripos($text, '{editingtoggle}') !== false) {
@@ -3932,4 +4085,5 @@ class filter_filtercodes extends moodle_text_filter {
 
         return $text;
     }
+    
 }
