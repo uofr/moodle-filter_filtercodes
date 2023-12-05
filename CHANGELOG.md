@@ -1,7 +1,54 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [2.3.4] 2022-12-11 (dev)
+## [2.3.8] 2023-08-19 (rc only)
+### Added
+- New {myccourses} tag.
+- New {ifnotincourse}{/ifnotincourse} tags.
+- New {coursecount students:active} tag.
+- Fix-258: New {ifvisible} tag.
+- New {supportservicespage} tag (for Moodle 4.2 and later).
+- New {coursemoduleid} tag.
+- Fix-261: New {courseimage-url} tag.
+- New {chart progresspie} tag.
+- Fix-187: New {coursecard} tag (not the same as {coursecards}).
+- New {courseenrolmentdate} tag.
+- (ALPHA) New horizontal layout setting for {coursecards}, {coursecardsbyenrol} and {mycoursescards} (affects all 3).
+- (ALPHA) New table list layout setting for {coursecards}, {coursecardsbyenrol} and {mycoursescards} (affects all 3).
+- Fix-251: New optional course ID parameter for {coursestartdate} tag.
+- Alternative (alt) text to {qrcode} tag.
+### Updated
+- Fix-241: You may now optionally specify a space delimited list of category ID(s) in the {mycoursescards} tag.
+- Git now ignores .patch files.
+- The {courseid} and %7Bcourseid%7D tags can now be embedded in other tags.
+- The {coursemoduleid} and %7Bcoursecontextid%7D tags can now be embedded in other tags.
+- The {coursecontextid} and %7Bcoursecontextid%7D tags can now be embedded in other tags.
+- The {coursemoduleid} and %7Bcoursemoduleid%7D tags can now be embedded in other tags.
+- Fixed display of Course Cards Layout list of settings.
+- Addressed some PHP 8.1 compatibility warnings.
+- Some tags are now disabled if they do not meet Moodle and PHP version requirements.
+- Fix-253: Cohort names can now contain a dash in {ifincohort} tag.
+- Instruction to patch Moodle 4.2 to enable FilterCodes in custom menu.
+- {timezone} now works correctly if user's timezone is set to system timezone.
+- Refactored {mycourses...} tags and added missing unordered tag for {mycourses} tag.
+- {mycoursescards} tag will now display message if the user is not enrolled in any courses.
+- Courses that are either hidden or expired will now appear in course cards if the user has the capability to to see hidden courses.
+- Documentation (README.md)
+
+## [2.3.6] 2023-05-07
+### Updated
+- Partial fix for sizing issue of radial and pie charts in Moodle 4.1 and 4.2.
+- Copyright notice to include 2023.
+- Compatibility with Moodle 4.2.
+- Compatibility with PHP 8.1.
+
+## [2.3.5] 2023-01-31
+### Added
+- New {ifenrolpage}{/ifenrolpage} tags.
+- New {ifnotenrolpage}{/ifnotenrolpage} tags.
+- {courseid} tag now resolves to course id on enrolment pages.
+
+## [2.3.4] 2022-12-11
 ### Added
 - New {courseunenrolurl} tag.
 - New {coursecount students} tag.

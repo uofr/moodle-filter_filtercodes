@@ -18,7 +18,7 @@
  * Settings page for FilterCodes.
  *
  * @package    filter_filtercodes
- * @copyright  2017-2022 TNG Consulting Inc. - www.tngcosulting.ca
+ * @copyright  2017-2023 TNG Consulting Inc. - www.tngcosulting.ca
  * @author     Michael Milette
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -152,6 +152,18 @@ $choices = ['' => get_string('none'),
         'infoicon' => get_string('icon'),
         'brief' => get_string('brief', 'filter_filtercodes'),
         'verbose' => get_string('verbose', 'filter_filtercodes')];
+$setting = new admin_setting_configselect($name, $title, $description, $default, $choices);
+$settings->add($setting);
+
+// Course card format for {coursecards} tag.
+$default = 'vertical'; // Default is vertical cards.
+$name = 'filter_filtercodes/coursecardsformat';
+$title = get_string('coursecardsformat', 'filter_filtercodes');
+$choices = ['vertical' => get_string('vertical', 'editor'),  // Image above the description.
+        'horizontal' => get_string('horizontal', 'editor'), // Image to the left of the description.
+        'table' => get_string('list') // Table with course name, category and description.
+];
+$description = get_string('coursecardsformat_desc', 'filter_filtercodes');
 $setting = new admin_setting_configselect($name, $title, $description, $default, $choices);
 $settings->add($setting);
 
