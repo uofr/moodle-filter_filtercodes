@@ -1,5 +1,5 @@
 <?php
-// This file is part of FilterCodes for Moodle - http://moodle.org/
+// This file is part of FilterCodes for Moodle - https://moodle.org/
 //
 // FilterCodes is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * English strings for FilterCodes plugin.
@@ -20,7 +20,7 @@
  * @package    filter_filtercodes
  * @copyright  2017-2023 TNG Consulting Inc. - www.tngconsulting.ca
  * @author     Michael Milette
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -51,7 +51,7 @@ $string['coursecontactshowpic_desc'] = 'If enabled, will display the contact\'s 
 $string['coursecontactshowdesc'] = 'Show contact\'s profile description.';
 $string['coursecontactshowdesc_desc'] = 'If enabled, will display the contact\'s profile description in {coursecontacts} tags.';
 $string['coursecontactlinktype'] = 'Contact link type';
-$string['coursecontactlinktype_desc'] = 'Choose the type of link for the contact\s link in the {coursecontacts} tags.';
+$string['coursecontactlinktype_desc'] = 'Choose the type of link for the contact\'s link in the {coursecontacts} tags.';
 $string['showhiddenprofilefields'] = 'Show hidden profile fields';
 $string['showhiddenprofilefields_desc'] = 'Enable the {profile_field_...} tag to process all profile fields including ones hidden from the user.';
 $string['ifprofilefiedonlyvisible'] = '{ifprofile_field_} only visible.';
@@ -157,6 +157,7 @@ $string['photoeditor'] = 'Photo editor';
 $string['photoeditorlink'] = 'https://pixlr.com/editor/';
 $string['screenrec'] = 'Screen recorder';
 $string['screenreclink'] = 'https://screenapp.io/#/recording';
+$string['notavailable'] = 'Not available';
 
 $string['formquickquestion'] = '
 <form action="{wwwroot}/local/contact/index.php" method="post" class="cf contact-us">
