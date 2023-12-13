@@ -3719,6 +3719,145 @@ class filter_filtercodes extends moodle_text_filter {
                 $replace['/\{filtercodes\}/i'] = '';
             }
         }
+		
+		
+		
+		
+		if (stripos($text, '{dacast:') !== false) {
+			preg_match_all('/\{dacast\:([^\}].*?)\}/', $text, $matches);
+			$dacast_js = new moodle_url('/theme/boost_union/amd/src/dacast.js');
+			$PAGE->requires->js($dacast_js);
+			//$PAGE->requires->js_call_amd('theme_boost_union/dacast', 'init');
+	
+			error_log('dacast-matches:'.print_r($matches,1));
+			$dacast_output = '<h3>Dacast player: '.$matches[1][0].'</h3>
+				<div id="myDiv"></div>
+				<script>  
+	        window.addEventListener("load", function() {
+	          var CONTENT_ID = "'.$matches[1][0].'"
+	          var myPlayer = dacast(CONTENT_ID, \'myDiv\', {
+	            width: 1050,
+	            height: 600,
+				player: \'flow7\'
+	          });
+	        });
+				</script>';
+			
+			$replace['/\{dacast\:'.$matches[1][0].'\}/i'] = $dacast_output;
+			
+		}
+
+		if (stripos($text, '{nextactivity}') !== false) {
+			//get the next activity
+			$course = $PAGE->course;
+	
+		    // Get a list of all the activities in the course.
+		    $modules = get_fast_modinfo($course->id)->get_cms();
+	
+			error_log('filtercode next activity');
+	
+		    // Put the modules into an array in order by the position they are shown in the course.
+		    $mods = [];
+		    $activitylist = [];
+		    foreach ($modules as $module) {
+		        // Only add activities the user can access, aren't in stealth mode and have a url (eg. mod_label does not).
+		        if (!$module->uservisible || $module->is_stealth() || empty($module->url)) {
+		            continue;
+		        }
+		        $mods[$module->id] = $module;
+
+		        // No need to add the current module to the list for the activity dropdown menu.
+		        if ($module->id == $PAGE->cm->id) {
+		            continue;
+		        }
+		        // Module name.
+		        $modname = $module->get_formatted_name();
+		        // Display the hidden text if necessary.
+		        if (!$module->visible) {
+		            $modname .= ' ' . get_string('hiddenwithbrackets');
+		        }
+		        // Module URL.
+		        $linkurl = new moodle_url($module->url, array('forceview' => 1));
+		        // Add module URL (as key) and name (as value) to the activity list array.
+		        $activitylist[$linkurl->out(false)] = $modname;
+		    }
+
+		    $nummods = count($mods);
+
+		    // If there is only one mod then do nothing.
+		    if ($nummods == 1) {
+		        return '';
+		    }
+
+		    // Get an array of just the course module ids used to get the cmid value based on their position in the course.
+		    $modids = array_keys($mods);
+
+		    // Get the position in the array of the course module we are viewing.
+		    $position = array_search($PAGE->cm->id, $modids);
+
+		    $prevmod = null;
+		    $nextmod = null;
+
+		    // Check if we have a previous mod to show.
+		    if ($position > 0) {
+		        $prevmod = $mods[$modids[$position - 1]];
+		    }
+
+		    // Check if we have a next mod to show.
+		    if ($position < ($nummods - 1)) {
+		
+		        $nextmod = $mods[$modids[$position + 1]];
+		
+				/*
+				error_log('this: '.$this->page->cm->sectionnum.' nextmod:'.$nextmod->sectionnum);
+				// if next activity is in new section, link to section instead
+		
+				if ($nextmod->sectionnum > $this->page->cm->sectionnum) {
+			
+					$nextsec = new stdClass();
+					$nextsec->url = new moodle_url($CFG->wwwroot.'/course/view.php?id='.$this->page->course->id.'&section='.$nextmod->sectionnum);
+			
+					$nextsec->visibile = $nextmod->section->visible;
+			
+					//error_log('secinfo: '.print_r($nextmod->get_section_info($nextmod->sectionnum),1));
+				}
+				*/
+		    }
+
+		    $activitynav = new \core_course\output\activity_navigation(null, $nextmod, null);
+		    $renderer = $PAGE->get_renderer('core', 'course');
+    
+			$replace['/\{nextactivity\}/i'] = $renderer->render($activitynav);
+	
+
+		}
+
+		if (stripos($text, '{dba:') !== false) {
+	
+			preg_match_all('/\{dba\:d\=([0-9]+)\,rid\=([0-9]+)\}/', $text, $matches);
+	
+			$dbrec = $DB->get_records('data_content',['recordid' => $matches[2][0]]);
+	
+			$dbrec = array_values($dbrec);
+	
+			error_log('dba-matches:'.print_r($matches,1));
+			error_log('dba:'.print_r($dbrec,1));
+
+			$dba_output = 'dba-matches:'.print_r($matches,1);
+			$dba_output .= 'dba:'.print_r($dbrec,1);
+	
+	
+			$dba_output = '<h5>'.$dbrec[0]->content.'</h5>';
+			$dba_output .= $dbrec[1]->content;
+			$dba_output .= '<a href="'.$dbrec[4]->content.'">'.$dbrec[4]->content.'</a>';
+	
+			//$dba_output = 'senor frog 🐸';
+			$replace['/\{dba\:d\='.$matches[1][0].'\,rid\='.$matches[2][0].'\}/i'] = $dba_output;
+		}
+
+		
+		
+		
 
         //
         // Apply all of the filtercodes at once.
