@@ -3288,20 +3288,20 @@ class filter_filtercodes extends moodle_text_filter {
         // Parameters: None.
         if (stripos($text, '{toggleeditingmenu}') !== false) {
             $toggleme ="{toggleeditingmenu}";
-            if (!restricttag($toggleme)){
-
-            $editmode = ($PAGE->user_is_editing() ? 'off' : 'on');
-            $edittext = get_string('turnediting' . $editmode);
-            if ($PAGE->bodyid == 'page-site-index' && $PAGE->pagetype == 'site-index') { // Front page.
-                $replace['/\{toggleeditingmenu\}/i'] = $edittext . '|' . (new moodle_url(
-                    '/course/view.php',
-                    ['id' => $PAGE->course->id, 'sesskey' => sesskey(), 'edit' => $editmode]
-                ));
-            } else { // All other pages.
-                $replace['/\{toggleeditingmenu\}/i'] = $edittext . '|' . (new moodle_url(
-                    $PAGE->url,
-                    ['edit' => $editmode, 'adminedit' => $editmode, 'sesskey' => sesskey()]
-                )) . PHP_EOL;
+            if (!restricttag($toggleme)) {
+                $editmode = ($PAGE->user_is_editing() ? 'off' : 'on');
+                $edittext = get_string('turnediting' . $editmode);
+                if ($PAGE->bodyid == 'page-site-index' && $PAGE->pagetype == 'site-index') { // Front page.
+                    $replace['/\{toggleeditingmenu\}/i'] = $edittext . '|' . (new moodle_url(
+                        '/course/view.php',
+                        ['id' => $PAGE->course->id, 'sesskey' => sesskey(), 'edit' => $editmode]
+                    ));
+                } else { // All other pages.
+                    $replace['/\{toggleeditingmenu\}/i'] = $edittext . '|' . (new moodle_url(
+                        $PAGE->url,
+                        ['edit' => $editmode, 'adminedit' => $editmode, 'sesskey' => sesskey()]
+                    )) . PHP_EOL;
+                }
             }
         }
 
