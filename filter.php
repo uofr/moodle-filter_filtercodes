@@ -3840,13 +3840,14 @@ class filter_filtercodes extends moodle_text_filter {
 	
 			$dbrec = array_values($dbrec);
 	
-			error_log('dba-matches:'.print_r($matches,1));
-			error_log('dba:'.print_r($dbrec,1));
+			//error_log('dba-matches:'.print_r($matches,1));
+			//error_log('dba:'.print_r($dbrec,1));
 
-			$dba_output = 'dba-matches:'.print_r($matches,1);
-			$dba_output .= 'dba:'.print_r($dbrec,1);
+			//$dba_output = 'dba-matches:'.print_r($matches,1);
+			//$dba_output .= 'dba:'.print_r($dbrec,1);
 	
-	
+			//error_log('{dba\:d\='.$matches[1][0].'\,rid\='.$matches[2][0].'\}/i');
+			
 			$dba_output = '<h5>'.$dbrec[0]->content.'</h5>';
 			$dba_output .= $dbrec[1]->content;
 			$dba_output .= '<a href="'.$dbrec[4]->content.'">'.$dbrec[4]->content.'</a>';
