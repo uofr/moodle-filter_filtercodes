@@ -3848,9 +3848,13 @@ class filter_filtercodes extends moodle_text_filter {
 	
 			//error_log('{dba\:d\='.$matches[1][0].'\,rid\='.$matches[2][0].'\}/i');
 			
-			$dba_output = '<h5>'.$dbrec[0]->content.'</h5>';
-			$dba_output .= $dbrec[1]->content;
-			$dba_output .= '<a href="'.$dbrec[4]->content.'">'.$dbrec[4]->content.'</a>';
+			$dba_title = format_text($dbrec[0]->content,FORMAT_HTML);
+			$dba_content = format_text($dbrec[1]->content,FORMAT_HTML);
+			$dba_filename = format_text($dbrec[5]->content,FORMAT_HTML);
+			
+			$dba_output = '<h5><span class="nolink">'.$dba_title.'</span></h5>';
+			$dba_output .= $dba_content;
+			$dba_output .= '<img class="icon " width="16" height="16" alt="PDF document" title="PDF document" src="https://hill-levene.imagineur.ca/learn/theme/image.php/boost_union/core/1704309532/f/pdf"> '.$dba_filename;
 	
 			//$dba_output = 'senor frog 🐸';
 			$replace['/\{dba\:d\='.$matches[1][0].'\,rid\='.$matches[2][0].'\}/i'] = $dba_output;
