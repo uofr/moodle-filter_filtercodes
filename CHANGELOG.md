@@ -1,6 +1,17 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [2.4.4] 2024-02-04 (dev)
+### Added
+- New {iftheme}{/iftheme} tag.
+- New {ifnottheme}{/ifnottheme} tag.
+### Updated
+- Fix-291: Escape tags now work reliably.
+- Copyright notice to include 2024.
+- Fixed compatibility issue with Moodle LMS 4.4 (ALPHA)
+- Improved detection of https protocol.
+- Improved {ifmobile} tag detection.
+
 ## [2.4.3] 2023-11-20
 ### Added
 - New {menuthemes} tag.

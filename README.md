@@ -325,6 +325,8 @@ Note: {if*rolename*} and {ifmin*rolename*} type tags are based on role archetype
 * {ifcourserequests}{/ifcourserequests} : Will display enclosed contents only if the Request a Course feature is enabled.
 * {ifeditmode}{/ifeditmode} : Will display the enclosed content only if editing mode is turned on.
 * {ifprofile_field_shortname}{/ifprofile_field_shortname} : Will display the enclosed content if the custom user profile field is not blank/zero.
+* {iftheme themename}{/iftheme} : Will display enclosed content if the theme specified (theme's directory name) is the one currently used to render the page.
+* {ifnottheme themename}{/ifnottheme} : Will display enclosed content if the theme specified (theme's directory name) is NOT the one currently used to render the page.
 
 If the condition is not met in the particular context, the specified tag and its content will be removed.
 
@@ -397,19 +399,21 @@ Some themes may not support horizontal menu separators. Again, contact the devel
 
 This will add a Home link, a listing of top-level categories, a listing of courses in which you are currently enrolled, and a Logout link, but only if you are currently logged in.
 
-    {fa fa-home} {getstring}home{/getstring}|/{ifloggedin}?redirect=0{/ifloggedin}
-    {fa fa-th} {mlang en}Course catalogue{mlang}{mlang fr}Répertoire des cours{mlang}
-    {categories0menu}
-        -###
-        -{getstring}fulllistofcourses{/getstring}|/course/
-    {ifloggedin}
-    {fa fa-tachometer} {getstring}myhome{/getstring}|/my/
-    {fa fa-graduation-cap} {getstring}mycourses{/getstring}
-    {mycoursesmenu}
-    {courserequestmenu}
-    {getstring}logout{/getstring}|/login/logout.php?sesskey={sesskey}
-    {/ifloggedin}
-    {fa fa-question} {getstring}help{/getstring}|/mod/page/view.php?id=275
+```
+{fa fa-home} {getstring}home{/getstring}|/{ifloggedin}?redirect=0{/ifloggedin}
+{fa fa-th} {mlang en}Course catalogue{mlang}{mlang fr}Répertoire des cours{mlang}
+{categories0menu}
+    -###
+    -{getstring}fulllistofcourses{/getstring}|/course/
+{ifloggedin}
+{fa fa-tachometer} {getstring}myhome{/getstring}|/my/
+{fa fa-graduation-cap} {getstring}mycourses{/getstring}
+{mycoursesmenu}
+{courserequestmenu}
+{getstring}logout{/getstring}|/login/logout.php?sesskey={sesskey}
+{/ifloggedin}
+{fa fa-question} {getstring}help{/getstring}|/mod/page/view.php?id=275
+```
 
 ### Admin menu
 
@@ -422,47 +426,53 @@ For example:
 - Teachers will only see the Admin menu within the course where they are a teacher.
 
 ```
-    {ifminteacher}
-    {fa fa-wrench} {getstring}admin{/getstring}
-    {/ifminteacher}
-    {ifmincreator}
-    -{getstring}administrationsite{/getstring}|/admin/search.php
-    -{toggleeditingmenu}
-    -Moodle Admin Basics course|https://learn.moodle.org/course/view.php?id=23353|Learn.Moodle.org
-    -###
-    {/ifmincreator}
-    {ifminmanager}
-    -{getstring}user{/getstring}: {mlang en}Management{mlang}{mlang fr}Gestion{mlang}|/admin/user.php
-    {ifminsitemanager}
-    -{getstring}user{/getstring}: {getstring:mnet}profilefields{/getstring}|/user/profile/index.php
-    -###
-    {/ifminsitemanager}
-    -{getstring}course{/getstring}: {mlang en}Management{mlang}{mlang fr}Gestion{mlang}|/course/management.php
-    -{getstring}course{/getstring}: {getstring}new{/getstring}|/course/edit.php?category={coursecategoryid}&returnto=topcat
-    {/ifminmanager}
-    {ifminteacher}
-    -{getstring}course{/getstring}: {getstring}restore{/getstring}|/backup/restorefile.php?contextid={coursecontextid}
-    {ifincourse}
-    -{getstring}course{/getstring}: {getstring}backup{/getstring}|/backup/backup.php?id={courseid}
-    -{getstring}course{/getstring}: {getstring}participants{/getstring}|/user/index.php?id={courseid}
-    -{getstring}course{/getstring}: {getstring:badges}badges{/getstring}|/badges/index.php?type={courseid}
-    -{getstring}course{/getstring}: {getstring}reset{/getstring}|/course/reset.php?id={courseid}
-    -Course: Layoutit|https://www.layoutit.com/build" target="popup" onclick="window.open('https://www.layoutit.com/build','popup','width=1340,height=700'); return false;|Bootstrap Page Builder
-    {/ifincourse}
-    -###
-    {/ifminteacher}
-    {ifminmanager}
-    -{getstring}site{/getstring}: System reports|/admin/category.php?category=reports
-    {/ifminmanager}
-    {ifadmin}
-    -{getstring}site{/getstring}: {getstring:admin}additionalhtml{/getstring}|/admin/settings.php?section=additionalhtml
-    -{getstring}site{/getstring}: {getstring:admin}frontpage{/getstring}|/admin/settings.php?section=frontpagesettings|Including site name
-    -{getstring}site{/getstring}: {getstring:admin}plugins{/getstring}|/admin/search.php#linkmodules
-    -{getstring}site{/getstring}: {getstring:admin}supportcontact{/getstring}|/admin/settings.php?section=supportcontact
-    -{getstring}site{/getstring}: {getstring:admin}themesettings{/getstring}|/admin/settings.php?section=themesettings|Including custom menus, designer mode, theme in URL
-    -{getstring}site{/getstring}: Boost|/admin/settings.php?section=themesettingboost
-    -{getstring}site{/getstring}: {getstring}notifications{/getstring} ({getstring}admin{/getstring})|/admin/index.php
-    {/ifadmin}
+{ifminteacher}
+{fa fa-wrench} {getstring}admin{/getstring}
+{/ifminteacher}
+{ifmincreator}
+-{getstring}administrationsite{/getstring}|/admin/search.php
+-{toggleeditingmenu}
+-Moodle Admin Basics course|https://learn.moodle.org/course/view.php?id=23353|Learn.Moodle.org
+-###
+{/ifmincreator}
+{ifminmanager}
+-{getstring}user{/getstring}: {mlang en}Management{mlang}{mlang fr}Gestion{mlang}|/admin/user.php
+{ifminsitemanager}
+-{getstring}user{/getstring}: {getstring:mnet}profilefields{/getstring}|/user/profile/index.php
+-###
+{/ifminsitemanager}
+-{getstring}course{/getstring}: {mlang en}Management{mlang}{mlang fr}Gestion{mlang}|/course/management.php
+-{getstring}course{/getstring}: {getstring}new{/getstring}|/course/edit.php?category={coursecategoryid}&returnto=topcat
+{/ifminmanager}
+{ifminteacher}
+-{getstring}course{/getstring}: {getstring}restore{/getstring}|/backup/restorefile.php?contextid={coursecontextid}
+{ifincourse}
+-{getstring}course{/getstring}: {getstring}backup{/getstring}|/backup/backup.php?id={courseid}
+-{getstring}course{/getstring}: {getstring}participants{/getstring}|/user/index.php?id={courseid}
+-{getstring}course{/getstring}: {getstring:badges}badges{/getstring}|/badges/index.php?type={courseid}
+-{getstring}course{/getstring}: {getstring}reset{/getstring}|/course/reset.php?id={courseid}
+-Course: Layoutit|https://www.layoutit.com/build" target="popup" onclick="window.open('https://www.layoutit.com/build','popup','width=1340,height=700'); return false;|Bootstrap Page Builder
+{/ifincourse}
+-###
+{/ifminteacher}
+{ifminmanager}
+-{getstring}site{/getstring}: System reports|/admin/category.php?category=reports
+{/ifminmanager}
+{ifadmin}
+-{getstring}site{/getstring}: {getstring:admin}additionalhtml{/getstring}|/admin/settings.php?section=additionalhtml
+-{getstring}site{/getstring}: {getstring:admin}frontpage{/getstring}|/admin/settings.php?section=frontpagesettings|Including site name
+-{getstring}site{/getstring}: {getstring:admin}plugins{/getstring}|/admin/search.php#linkmodules
+-{getstring}site{/getstring}: {getstring:admin}supportcontact{/getstring}|/admin/settings.php?section=supportcontact
+-{getstring}site{/getstring}: {getstring:admin}themesettingsadvanced{/getstring}|/admin/settings.php?section=themesettingsadvanced|Including custom menus, designer mode, theme in URL
+-{getstring}site{/getstring}: Boost|/admin/settings.php?section=themesettingboost
+-{getstring}site{/getstring}: {getstring}notifications{/getstring} ({getstring}admin{/getstring})|/admin/index.php
+{/ifadmin}
+```
+
+Note: Previous to Moodle 4.4, the line for Theme Settings was:
+
+```
+-{getstring}site{/getstring}: {getstring:admin}themesettings{/getstring}|/admin/settings.php?section=themesettings|Including custom menus, designer mode, theme in URL
 ```
 
 Tips: If you are not using the Boost theme, customize the link in the 3rd to last line to your theme's settings page.
@@ -506,7 +516,7 @@ Even better, try out the dynamic **{menudev}** tag. It includes all of the above
 
 ## FilterCodes in custom menus
 
-Note: The source code in this section was last updated in April 2022 for Moodle 4.0 and last tested in May 2023 for Moodle 4.2 compatibility.
+Note: The source code in this section was last updated in April 2022 for Moodle 4.0 and last tested in January 2024 for Moodle 4.3 and 4.4 (ALPHA) compatibility.
 
 FilterCodes can work in custom menus but, unfortunately, only if the theme supports it or you patched Moodle. If it does not work for you, contact the theme's developer and request that they add support for Moodle filters. See the instructions included below.
 
@@ -531,6 +541,7 @@ To patch Moodle to handle this properly for most Moodle themes, cherry-pick the 
 * Moodle 4.1: https://github.com/michael-milette/moodle/tree/MDL-63219-M401
 * Moodle 4.2: https://github.com/michael-milette/moodle/tree/MDL-63219-M402
 * Moodle 4.3: https://github.com/michael-milette/moodle/tree/MDL-63219-M403
+* Moodle 4.4: https://github.com/michael-milette/moodle/tree/MDL-63219-M404
 * Moodle master: https://github.com/michael-milette/moodle/tree/MDL-63219-master
 
 Example: To apply the patch for Moodle using git (change the "M403" for other versions):
@@ -679,7 +690,7 @@ Add the following code to core_renderer section of your theme for Moodle 2.7 to 
         /**
          * Applies Moodle filters to the custom menu and custom user menu.
          *
-         * Copyright: 2017-2023 TNG Consulting Inc.
+         * Copyright: 2017-2024 TNG Consulting Inc.
          * License:   GNU GPL v3+.
          *
          * @param string $custommenuitems Current custom menu object.
@@ -1180,6 +1191,8 @@ Create a Page on your Moodle site, preferably in a course, so that those tags wo
 * If Developer [{ifdev}]You are an administrator with debugging set to developer mode.[{/ifdev}]: {ifdev}You are an administrator with debugging set to developer mode.{/ifdev}
 * If user has a parent custom role [{ifcustomrole parent}]You have a parent custom role in this context[{/ifcustomrole}]: {ifcustomrole parent}You have a parent custom role in this context{/ifcustomrole}.
 * If user does not have a parent custom role [{ifnotcustomrole parent}]You do not have a parent custom role in this context[{/ifnotcustomrole}]: {ifnotcustomrole parent}You do not have a parent custom role in this context{/ifnotcustomrole}.
+* The current theme is [{iftheme boost}]Boost[{/iftheme}][{iftheme classic}]Classic[{/iftheme}]: {iftheme boost}Boost{/iftheme}{iftheme classic}Classic{/iftheme}
+* The current theme is [{ifnottheme boost}]NOT [{/ifnottheme}]Boost: {ifnottheme boost}NOT {/ifnottheme} Boost.
 * If on Home page [{ifhome}]You are on the Home Frontpage.[{/ifhome}]: {ifhome}You are on the Home Frontpage.{/ifhome}
 * If not on the Home page [{ifnothome}]You are NOT on the Home Frontpage.[{/ifnothome}]: {ifnothome}You are NOT on the Home Frontpage.{/ifnothome}
 * If on Dashboard [{ifdashboard}]You are on the Dashboard page.[{/ifdashboard}]: {ifdashboard}You are on the Dashboard page.{/ifdashboard}
@@ -1379,7 +1392,7 @@ https://github.com/michael-milette/moodle-filter_filtercodes
 
 # License
 
-Copyright © 2017-2023 TNG Consulting Inc. - https://www.tngconsulting.ca/
+Copyright © 2017-2024 TNG Consulting Inc. - https://www.tngconsulting.ca/
 
 This file is part of FilterCodes for Moodle - https://moodle.org/
 
