@@ -180,7 +180,7 @@ $setting = new admin_setting_configselect($name, $title, $description, $default,
 $settings->add($setting);
 
 // Option to select how to display user description for {teamcards} tag.
-$default = ''; // Default is to not display the description field.
+$default = []; // Default is to not display the description field.
 $name = 'filter_filtercodes/restrictedtags';
 $title = get_string('restrictedtags', 'filter_filtercodes');
 $description = get_string('restrictedtags_desc', 'filter_filtercodes');
