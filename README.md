@@ -2,8 +2,8 @@
 
 FilterCodes filter plugin for Moodle
 ====================================
-![PHP](https://img.shields.io/badge/PHP-v5.6%20%2F%20v7.0%20%2F%20v7.1%20%2F%20v7.2%20%2F%20v7.3%20%2F%20v7.4%20%2F%20v8.0%20%2F%20v8.1%20%2F%20v8.2-blue.svg)
-![Moodle](https://img.shields.io/badge/Moodle-v2.7%20to%20v4.3-orange.svg)
+![PHP](https://img.shields.io/badge/PHP-v5.6%20to%20v8.3-blue.svg)
+![Moodle](https://img.shields.io/badge/Moodle-v2.7%20to%20v4.4-orange.svg)
 [![GitHub Issues](https://img.shields.io/github/issues/michael-milette/moodle-filter_filtercodes.svg)](https://github.com/michael-milette/moodle-filter_filtercodes/issues)
 [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-green.svg)](#contributing)
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](#license)
@@ -61,7 +61,7 @@ This plugin requires Moodle 2.7+ from https://moodle.org/ . Note that some tags 
 The most recent STABLE release of FilterCodes for Moodle is available from:
 https://moodle.org/plugins/filter_filtercodes
 
-The most recent DEVELOPMENT release can be found at:
+The most recent development release can be found at:
 https://github.com/michael-milette/moodle-filter_filtercodes
 
 [(Back to top)](#table-of-contents)
@@ -160,6 +160,7 @@ FilterCodes are meant to be entered as regular text in the Moodle WYSIWYG editor
 * (ALPHA) {chart progresspie x --size:150px --border:20px --color:purple --bgcolor:#f0f0f0 --title:caption text}Create a (circle / doughnut) progress chart giving it a value of x between 0 and 100. You can specify the height/width (size) and the thickness (border) of the line in* **px** as well as the color and background color by name or by RGB value. You can also specify a caption. Note that all parameters that begin with two dashes (--) are optional. (Requires PHP 7.0+ and Moodle 3.2+)
 * {showmore}{/showmore} : Toggle showing content between opening and closing more tags. Limitations: Can only be used inline with text. Must now weave into other opening and closing tags.
 * {qrcode}{/qrcode} : Generate and display a QR Code for the content between the tags.
+* (ALPHA) {dashboard_siteinfo} : Only displays for admins - Use this on your dashboard to see system information like available disk space, number of courses, total number of users and users currently online (in the last 5 minutes). This is an early alpha release and will likely change in the future.
 
 ### For use in courses
 
@@ -218,6 +219,7 @@ Also, see Courses section below.
 * {menuadmin} : Useful dynamic menu for Moodle teachers, managers and administrators.
 * {menudev} : Useful dynamic menu for Moodle developers. Only visible when debugging is set to DEVELOPER mode.
 * {menuthemes} : Theme switcher. Only for administrators. Not available after POST. Allow Theme Changes on URL must be enabled. Will be visible even when Administrator is using the **Log In As** feature to log in as a different user.
+* {menucoursemore} : Adds the content of the secondary menu to a menu called "More". Useful for themes with pre-4.x style navigation.
 
 ### URL
 
@@ -238,7 +240,7 @@ Also, see Courses section below.
 * {note}content{/note} : Enables you to include a note which will not be displayed.
 * {help}content{/help} : Enables you to create popup help icons just like Moodle does.
 * {info}content{/info} : Enables you to create popup help icons just like the popup Help icons but with an "i" information icon.
-* (ALPHA) {alert style}content{/alert} : Creates an alert box containing the specified content. You can change the style by specifying an optional parameter. Example: **{alert primary}** or **{alert success}**. [List of styles](https://getbootstrap.com/docs/4.0/components/alerts/)
+* (ALPHA) {alert style}content{/alert} : Creates an alert box containing the specified content. You can change the style by specifying an optional parameter. Example: **{alert primary}** or **{alert success}**. [List of styles](https://getbootstrap.com/docs/4.0/components/alerts/). In addition, you can also specify **{alert border}** which will simply put a border around your content. This cannot be combined with other styles.
 * {highlight}{/highlight} : Highlight text like a highlighter in bright yellow. NOTE: Must only be used within a paragraph.
 * {marktext}{/marktext} : Highlight text using HTML5's mark tag. You can style this tag using CSS in your theme using a fc-marktext class.
 * {markborder}{/markborder} : Surrounds text with a red dashed border. You can style this tag using CSS in your theme using a fc-markborder class (border and padding with !important to override).
@@ -1075,6 +1077,8 @@ Create a Page on your Moodle site, preferably in a course, so that those tags wo
 * Team cards Our faculty team [{teamcards}]: Our faculty team<br>{teamcards}
 * (ALPHA) Category cards [{categorycards}]: {categorycards}
 * (ALPHA) Category 1 cards [{categorycards 1}]: Sub-categories of Miscellaneous category include {categorycards 1}
+* (ALPHA) Dashboard site information [{dashboard_siteinfo}]:
+{dashboard_siteinfo}
 * Total courses [{coursecount}]: {coursecount}
 * Institution [{institution}]: {institution}
 * Department [{department}]: {department}
@@ -1108,6 +1112,7 @@ Create a Page on your Moodle site, preferably in a course, so that those tags wo
 * Moodle Admin custom menu items [{menuadmin}]: <br><pre>{menuadmin}</pre>
 * Moodle Dev custom menu items [{menudev}]: <br><pre>{menudev}</pre>
 * Moodle Admin theme switcher [{menuthemes}]: <br><pre>{menuthemes}</pre>
+* Secondary menu for pre-4.x themes [{menucoursemore}]: <br><pre>{menucoursemore}</pre>
 * Course's category ID (0 if not in a course or category list of course) [{categoryid}]: {categoryid}
 * Course's category name (blank if not in a course) [{categoryname}]: {categoryname}
 * Course's category number (blank if not in a course) [{categorynumber}]: {categorynumber}
