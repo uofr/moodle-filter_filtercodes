@@ -2,8 +2,8 @@
 
 FilterCodes filter plugin for Moodle
 ====================================
-![PHP](https://img.shields.io/badge/PHP-v5.6%20%2F%20v7.0%20%2F%20v7.1%2F%20v7.2%2F%20v7.3%2F%20v7.4%2F%20v8.0%2F%20v8.1-blue.svg)
-![Moodle](https://img.shields.io/badge/Moodle-v2.7%20to%20v4.2-orange.svg)
+![PHP](https://img.shields.io/badge/PHP-v5.6%20%2F%20v7.0%20%2F%20v7.1%20%2F%20v7.2%20%2F%20v7.3%20%2F%20v7.4%20%2F%20v8.0%20%2F%20v8.1%20%2F%20v8.2-blue.svg)
+![Moodle](https://img.shields.io/badge/Moodle-v2.7%20to%20v4.3-orange.svg)
 [![GitHub Issues](https://img.shields.io/github/issues/michael-milette/moodle-filter_filtercodes.svg)](https://github.com/michael-milette/moodle-filter_filtercodes/issues)
 [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-green.svg)](#contributing)
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](#license)
@@ -126,6 +126,8 @@ FilterCodes are meant to be entered as regular text in the Moodle WYSIWYG editor
 * {usersonline} : Total number of users who were online in the last 5 minutes.
 * {userscountrycount} : Total number of countries that users are from according to their profile.
 * {siteyear} : 4-digit current year.
+* {sitename} : Full name of the website.
+* {sitesummary} : Text from site summary.
 * {now dateTimeFormat} : Display's the current date. For information on the optional dateTimeFormat format, see Supported dateTimeFormats Formats in the [FAQ](#faq) section of this documentation.
 * {coursecount} : Total number of courses on this Moodle site (not including Frontpage).
 * {diskfreespace} : Display the amount of free disk space for the application folder. The infinite symbol will be displayed if greater than about 84,703.29 Yottabytes (YB), or if it fails to get the size from the operating system.
@@ -138,17 +140,17 @@ FilterCodes are meant to be entered as regular text in the Moodle WYSIWYG editor
 
 ### UI Elements
 
-* {teamcards} : Displays photos, names (optionally linked) and optional descriptions of the users who are teachers. Only Verbose format is suitable for use in a side block.
-* (ALPHA) {coursecards} or {coursecards categoryID} : Display available courses as cards. You can optionally specify the ID number of a category. Example: {coursecards 1} will only display courses in the default Miscellaneous category. Note: The categoryID is not the "Category ID Number" field that you can optionally specify when creating a category. The maximum number of courses displayed is controlled by the front page setting called **frontpagecourselimit**. You can change the layout from vertical cards to horizontal cards or a table list using the Course Cards Layout setting in the FilterCodes settings.
-* (ALPHA) {coursecard ids}  : Display specific course cards by specifying a list of one or more course ids separated by a space. Example: {coursecard 20 43 104} will display 3 course cards assuming they exist. Courses that have their visibility set to Hidden or that have an expired end-date will only be visible to those who have the capability to see hidden courses (e.g. Site Administrator or Manager role). The maximum number of courses displayed is controlled by the front page setting called **frontpagecourselimit**. You can change the layout from vertical cards to horizontal cards or a table list using the Course Cards Layout setting in the FilterCodes settings.
-* (ALPHA) {coursecardsbyenrol} : Display course cards for the most popular courses based on enrolment. The maximum number of cards is configurable in the plugin settings. You can change the layout from vertical cards to horizontal cards or a table list using the Course Cards Layout setting in the FilterCodes settings.
+* {teamcards} : Displays photos, names (optionally linked) and optional descriptions of anyone anywhere on the site who has one of the roles selected in Site Administration > Appearance > Course > Course Contacts. Only Verbose format is suitable for use in a side block.
+* (ALPHA) {coursecards} or {coursecards categoryID} : Display available courses as cards. You can optionally specify the ID number of a category. Example: {coursecards 1} will only display courses in the default Miscellaneous category. Note: The categoryID is not the "Category ID Number" field that you can optionally specify when creating a category. The maximum number of courses displayed is controlled by the front page setting called **frontpagecourselimit**. You can change the layout from vertical cards to horizontal cards or a table list using the Course Cards Layout setting in the FilterCodes settings. Course will be displayed if its visibility is set to Show AND (either has no end date OR a future end date). Courses not visible will be still visible to site admins or users with viewhiddencourses capability.
+* (ALPHA) {coursecard ids}  : Display specific course cards by specifying a list of one or more course ids separated by a space. Example: {coursecard 20 43 104} will display 3 course cards assuming they exist. Courses that have their visibility set to Hidden or that have an expired end-date will only be visible to those who have the capability to see hidden courses (e.g. Site Administrator or Manager role). The maximum number of courses displayed is controlled by the front page setting called **frontpagecourselimit**. You can change the layout from vertical cards to horizontal cards or a table list using the Course Cards Layout setting in the FilterCodes settings. Course will be displayed if its visibility is set to Show AND (either has no end date OR a future end date). Courses not visible will be still visible to site admins or users with viewhiddencourses capability.
+* (ALPHA) {coursecardsbyenrol} : Display course cards for the most popular courses based on enrolment. The maximum number of cards is configurable in the plugin settings. You can change the layout from vertical cards to horizontal cards or a table list using the Course Cards Layout setting in the FilterCodes settings. Course will be displayed if its visibility is set to Show AND (either has no end date OR a future end date). Courses not visible will be still visible to site admins or users with viewhiddencourses capability.
 * (ALPHA) {courseprogress} : Displays course progress status in words. Only works within a course.
 * {courseprogresspercent} : Displays course progress percentage as a number without a percentage symbol. Only works within a course.
 * (ALPHA) {courseprogressbar}: Displays course progress status as a status bar. Only works within a course.
 * (ALPHA) {categorycards} or {categorycards id} : Display top-level categories as cards using the current category as the top-level category. For example, on the Frontpage, it will display all top-level categories. However, if you are inside the Miscellaneous category (e.g., in Miscellaneous > Your Course), it will only display the next level of categories under the Miscellaneous category. You can optionally specify a category in the tag.
 * {mycourses} : Display an unordered list of links to all my enrolled courses. Note that there is a FilterCodes setting to determine whether this list includes completed courses.
 * {myccourses} : Display an unordered list of links to all my **completed** courses. Only includes courses in which course completion has been configured and enabled.
-* {mycoursescards[ categoryID(s)]} : Displays a series of cards for my enrolled courses. You may optionally specify one or more category IDs separated by a space. You can change the layout from vertical cards to horizontal cards or a table list using the **Course Cards Layout** setting in the FilterCodes settings. A message indicating that you are not logged-in will be displayed if you are not logged in.
+* {mycoursescards[ categoryID(s)]} : Displays a series of cards for my enrolled courses. You may optionally specify one or more category IDs separated by a space. You can change the layout from vertical cards to horizontal cards or a table list using the **Course Cards Layout** setting in the FilterCodes settings. A message indicating that you are not logged-in will be displayed if you are not logged in. Course will be displayed if its visibility is set to Show AND (either has no end date OR a future end date). Courses not visible will be still visible to site admins or users with viewhiddencourses capability.
 * {courserequest} : Displays a Request a Course link.
 * {label type}{/label} : Display text over background colour. The Boost theme supports the following types: **info**, **important**, **secondary**, **success** and **warning**. Other themes may also support **primary**, **danger**, **light**, **dark** and more. Example: {label info}For your information{/label}. Actual foreground and background colours vary depending on the theme. If the type is not specified, it will default to **info**. If the type specified is not supported by your theme, it may default to secondary.
 * {button URL}Label{/button} : Create a clickable button link formatted like a primary button.
@@ -214,7 +216,8 @@ Also, see Courses section below.
 * {courserequestmenu0} : Request a course / Course request in a top level custom menu.
 * {courserequestmenu} : Request a course / Course request in submenu.
 * {menuadmin} : Useful dynamic menu for Moodle teachers, managers and administrators.
-* {menudev} : Useful dynamic menu for Moodle developers.
+* {menudev} : Useful dynamic menu for Moodle developers. Only visible when debugging is set to DEVELOPER mode.
+* {menuthemes} : Theme switcher. Only for administrators. Not available after POST. Allow Theme Changes on URL must be enabled. Will be visible even when Administrator is using the **Log In As** feature to log in as a different user.
 
 ### URL
 
@@ -241,7 +244,7 @@ Also, see Courses section below.
 * {markborder}{/markborder} : Surrounds text with a red dashed border. You can style this tag using CSS in your theme using a fc-markborder class (border and padding with !important to override).
 * {scrape url="..." tag="..." class="..." id="..." code="..."} : Scrapes the content from another web page. Must be enabled in FilterCodes settings.
 * {getstring:component_name}stringidentifier{/getstring} or {getstring}stringidentifier{/getstring}: Display a Moodle language string in the current language. If no component name (plugin) is specified, will default to "moodle".
-* {fa/fas/far/fal fa-...} : Insert FontAwesome icon. Note: FontAwesome Font/CSS must be loaded as part of your theme.
+* {fa/fas/fab/fa-solid/fa-brands fa-...} : Insert FontAwesome icon. Note: FontAwesome Font/CSS must be loaded as part of your theme. Supports FontAwesome 4.x and 6.0 included with Moodle. If you have the pro version installed, it the additional icons will be supported as well.
 * {glyphicon glyphicon-...} : Insert Glyphicons icon. Note: Glyphicons Font/CSS must be loaded as part of your theme.
 
 ### Contact Form templates
@@ -296,7 +299,8 @@ Note: {if*rolename*} and {ifmin*rolename*} type tags are based on role archetype
 #### Roles
 
 * {ifguest}{/ifguest} : Will display the enclosed content only if the user is logged in as guest.
-* {ifstudent}{/ifstudent} : Will display the enclosed content only if the user is logged in and enrolled in the course (no other roles).
+* {ifstudent}{/ifstudent} : Will display the enclosed content only if the user is logged in and enrolled in the course as a student (has no other roles).
+* {ifminstudent}{/ifminstudent} : Will display the enclosed content only if the user is logged in and enrolled in the course as a student (may have other roles).
 * {ifassistant}{/ifassistant} : Will display the enclosed content only if the user is logged in as a non-editing teacher in the current course.
 * {ifminassistant}{/ifminassistant} : Will display the enclosed content only if the user is logged in as a non-editing teacher or above in the current course.
 * {ifteacher}{/ifteacher} : Will display the enclosed content only if the user is logged in as a teacher in the current course.
@@ -338,6 +342,7 @@ If the condition is not met in the particular context, the specified tag and its
 * {nbsp} : Is substituted for a non-breaking space when displayed.
 * {hr} : Horizontal rule.
 * {details}{summary}{/summary}{/details} : An easy way to create an HTML 5 Details/Summary expandable section in your page. IMPORTANT: {details}{summary}{/summary} must all be on one line (it is ok if the line wraps). The rest of the details can be on multiple lines followed by the {/details}. This is an experimental feature that may result in invalid HTML but it works. You can optionally add a CSS class name to the opening details tag. Example: {details faq-class}
+* {multilang xx}{/multilang} : Tags text so it displays only when the user interface is set to that particular language. For example, use {multilang en}English{/multilang}{multilang fr}Français{/multilang} to display ‘English’ when the UI is in English and ‘Français’ when it’s in French. Please be aware that this method does not actually perform language filtering. It merely simplifies the usage of Moodle’s **Multi-Language Content** filter. If this filter is activated, it will convert these plain text tags into HTML span tags, which are then processed by the **Multi-Language Content** filter. This only works if the Multi-Language Content filter is listed below the FilterCodes filter in ‘ Site Administration > Plugins > Filters > Manage filters’. When the content displayed, if you see the content for all languages, it is because you did not enable the Multi-Language Content filter.
 * {langx xx}{/langx} : Tag specific text in a particular language by wrapping the text in a plain text pair of {langx xx} {/langx} or {langx xx-XX} {/langx} tags. This makes no visible changes to the content but wraps the content in an HTML <span lang="xx"></span> inline tag. As a result, screen readers will make use of this localization information to apply a particular pronunciation if the text is in a different language than the language of the rest of the page. This is required for compliance with W3C Web Content Accessibility Guidelines (WCAG 2.0)
 
 The opening {langx xx} tag should include two [ISO 639-1](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) language code abbreviation letters in lowercase associated with the language's name. French, for example, has the code **fr**:
@@ -408,12 +413,15 @@ This will add a Home link, a listing of top-level categories, a listing of cours
 
 ### Admin menu
 
-Parts of this menu will only appear for Moodle administrators, managers, course creators and teachers depending on the user's role within the current context. For example:
+Parts of this menu will only appear for Moodle administrators, managers, course creators and teachers depending on the user's role within the current context.
+
+For example:
 
 - {ifincourse} menu items will only appear in a course.
 - Category Course Creators will only see the Admin menu within categories where they have that role.
 - Teachers will only see the Admin menu within the course where they are a teacher.
 
+```
     {ifminteacher}
     {fa fa-wrench} {getstring}admin{/getstring}
     {/ifminteacher}
@@ -455,6 +463,7 @@ Parts of this menu will only appear for Moodle administrators, managers, course 
     -{getstring}site{/getstring}: Boost|/admin/settings.php?section=themesettingboost
     -{getstring}site{/getstring}: {getstring}notifications{/getstring} ({getstring}admin{/getstring})|/admin/index.php
     {/ifadmin}
+```
 
 Tips: If you are not using the Boost theme, customize the link in the 3rd to last line to your theme's settings page.
 
@@ -521,12 +530,13 @@ To patch Moodle to handle this properly for most Moodle themes, cherry-pick the 
 * Moodle 4.0: https://github.com/michael-milette/moodle/tree/MDL-63219-M400
 * Moodle 4.1: https://github.com/michael-milette/moodle/tree/MDL-63219-M401
 * Moodle 4.2: https://github.com/michael-milette/moodle/tree/MDL-63219-M402
+* Moodle 4.3: https://github.com/michael-milette/moodle/tree/MDL-63219-M403
 * Moodle master: https://github.com/michael-milette/moodle/tree/MDL-63219-master
 
-Example: To apply the patch for Moodle using git (change the "M400" for other versions):
+Example: To apply the patch for Moodle using git (change the "M403" for other versions):
 
 ```bash
-    git fetch https://github.com/michael-milette/moodle MDL-63219-M402
+    git fetch https://github.com/michael-milette/moodle MDL-63219-M403
     git cherry-pick FETCH_HEAD
 ```
 
@@ -538,7 +548,7 @@ This is usually enough to make the filters work in the custom menu. However, we 
 
 There is no tested patch available for all 3rd party Moodle 4.0 themes. It is recommended to use Moodle core patch above which is known to work.
 
-The follow ALPHA code is based on information available in the Boost theme for Moodle 4.0/4.1/4.2. You will **also need** to apply the theme patch **For themes based on boost (Moodle 3.2 and later)** included below.
+The follow ALPHA code is based on information available in the Boost theme for Moodle 4.x. You will **also need** to apply the theme patch **For themes based on boost (Moodle 3.2 and later)** included below.
 
 Add this code to the core_renderer section (probably located in /theme/yourtheme/classes/navigation/output/primary.php) of your theme. Note: Your theme may even already have such a class (they often do):
 
@@ -1029,6 +1039,8 @@ Create a Page on your Moodle site, preferably in a course, so that those tags wo
 * Total number of online users [{usersonline}]: {usersonline}
 * Total number of users [{userscountrycount}]: {userscountrycount}
 * Current 4-digit year [{siteyear}]: {siteyear}
+* Fullname of website [{sitename}]: {sitename}
+* Site summary [{sitesummary}]: {sitesummary}
 * You first accessed the site on [{firstaccessdate strftimedatetime}]: {firstaccessdate strftimedatetime}
 * You last logged in on [{lastlogin strftimedatetime}]: {lastlogin strftimedatetime}
 * Course or Site full name [{coursename}]: {coursename}
@@ -1084,6 +1096,7 @@ Create a Page on your Moodle site, preferably in a course, so that those tags wo
 * 80% progresspie chart [{chart progresspie 80 --size:100px --border:15px --color:darkblue --bgcolor:lightblue --title:Are you over 70%?}]: {chart progresspie 80 --size:100px --border:15px --color:darkblue --bgcolor:lightblue --title:Are you over 70%?}
 * Moodle Admin custom menu items [{menuadmin}]: <br><pre>{menuadmin}</pre>
 * Moodle Dev custom menu items [{menudev}]: <br><pre>{menudev}</pre>
+* Moodle Admin theme switcher [{menuthemes}]: <br><pre>{menuthemes}</pre>
 * Course's category ID (0 if not in a course or category list of course) [{categoryid}]: {categoryid}
 * Course's category name (blank if not in a course) [{categoryname}]: {categoryname}
 * Course's category number (blank if not in a course) [{categorynumber}]: {categorynumber}
@@ -1121,11 +1134,12 @@ Create a Page on your Moodle site, preferably in a course, so that those tags wo
 * Non-breaking space [{nbsp}]: This{nbsp}: Is it! (view source code to see the non-breaking space)
 * Horizontal rule line [{hr}]: {hr}
 * English [{langx en}]Content[{/langx}]: {langx en}Content{/langx}
+* Current language: [{multilang en}]English[{/multilang}][{multilang fr}]Français[{/multilang}]:{multilang en}English{/multilang}{multilang fr}Français{/multilang}
 * String with component [{getstring:filter_filtercodes}]filtername[{/getstring}]: {getstring:filter_filtercodes}filtername{/getstring}
 * String [{getstring}]Help[{/getstring}]: {getstring}help{/getstring}
 * Toggle editing menu [{toggleeditingmenu}]: {toggleeditingmenu}
 * Editing Toggle [{editingtoggle}]: <a href="{wwwroot}/course/view.php?id={courseid}&sesskey={sesskey}&edit={editingtoggle}">Toggle editing</a>
-* FontAwesome "fa-globe": v4.x [{fa fa-globe}] {fa fa-globe}, v5.x [{fas fa-globe}] {fas fa-globe}. Must be supported by your theme.
+* FontAwesome "fa-globe": v4.x [{fa fa-globe}] {fa fa-globe}, v5.x [{fas fa-globe}] {fas fa-globe}, v6.x [{fa-solid fa-globe}] {fa-solid fa-globe}. Must be supported by your theme.
 * Glyphicons "glyphicon-envelope": Glyphicons [{glyphicon glyphicon-envelope}] {glyphicon glyphicon-envelope}. Must be supported by your theme.
 * Details/summary [{details}][{summary}]This is the summary[{/summary}] followed by the details.[{/details}]: {details}{summary}This is the summary{/summary} followed by the details.{/details}
 * You should not see the following note [{note}]This could be a comment, todo or reminder.[{/note}]: {note}This could be a comment, todo or reminder.{/note}
@@ -1152,6 +1166,7 @@ Create a Page on your Moodle site, preferably in a course, so that those tags wo
 * If LoggedOut [{ifloggedout}]You are logged-out.[{/ifloggedout}]: {ifloggedout}You are logged-out.{/ifloggedout}
 * If Guest [{ifguest}]You are a guest.[{/ifguest}]: {ifguest}You are a guest.{/ifguest}
 * If Student [{ifstudent}]You are a student who is logged in and enrolled in this course and has no other roles.[{/ifstudent}]: {ifstudent}You are a student who is logged in and enrolled in this course and has no other roles.{/ifstudent}
+* If Student [{ifminstudent}]You are a student who is logged in and enrolled in this course.[{/ifminstudent}]: {ifminstudent}You are a student who is logged in and enrolled in this course.{/ifminstudent}
 * If Non-editing Teacher [{ifassistant}]You are an assistant teacher.[{/ifassistant}]: {ifassistant}You are an assistant teacher.{/ifassistant}
 * If Non-editing Teacher (minimum) [{ifminassistant}]You are an assistant teacher or above.[{/ifminassistant}]: {ifminassistant}You are an assistant teacher or above.{/ifminassistant}
 * If Teacher [{ifteacher}You are a teacher.{/ifteacher}]: {ifteacher}You are a teacher.{/ifteacher}
@@ -1315,6 +1330,8 @@ Michael Milette - Author and Lead Developer
 
 Big thank you to the following contributors. (Please let me know if I forgot to include you in the list):
 
+* suzyzan: Fixed deprecation notice relating to trim() function in PHP 8.1 (2023).
+* richardvi/HZ University of Applied Sciences (premium supporter): Added support for locally assigned on module/activity custom roles to {ifcustomrole} (2023).
 * alexmorrisnz: Add CSS class support for {details} tag (2022).
 * alexmorrisnz: {lastlogin} and fixing issue with {teamcardsformat} setting (2022).
 * 3iPunt and abertranb: New {ifcustomrole} tag (2020).

@@ -1,5 +1,5 @@
 <?php
-// This file is part of FilterCodes for Moodle - http://moodle.org/
+// This file is part of FilterCodes for Moodle - https://moodle.org/
 //
 // FilterCodes is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Main filter code for FilterCodes.
@@ -20,7 +20,7 @@
  * @package    filter_filtercodes
  * @copyright  2017-2023 TNG Consulting Inc. - www.tngconsulting.ca
  * @author     Michael Milette
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -37,7 +37,7 @@ require_once($CFG->dirroot . '/course/renderer.php');
  * Extends the moodle_text_filter class to provide plain text support for new tags.
  *
  * @copyright  2017-2023 TNG Consulting Inc. - www.tngconsulting.ca
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class filter_filtercodes extends moodle_text_filter {
     /** @var object $archetypes Object array of Moodle archetypes. */
@@ -55,7 +55,7 @@ class filter_filtercodes extends moodle_text_filter {
      */
     public function __construct() {
 
-        // Note: This array must correspond to the one in function hasminarchetype().
+        // Note: This array must correspond to the one in function hasminarchetype.
         $archetypelist = ['manager' => 1, 'coursecreator' => 2, 'editingteacher' => 3, 'teacher' => 4, 'student' => 5];
         foreach ($archetypelist as $archetype => $level) {
             $roleids = [];
@@ -194,7 +194,7 @@ class filter_filtercodes extends moodle_text_filter {
                 // Retrieve list of role names.
                 $rolenames = $DB->get_records('role');
                 // Retrieve list of my roles across all contexts.
-                $userroles = $DB->get_records('role_assignments', array('userid' => $userid));
+                $userroles = $DB->get_records('role_assignments', ['userid' => $userid]);
                 // For each of my roles, add the roll name to the list.
                 foreach ($userroles as $role) {
                     if (!empty($rolenames[$role->roleid]->shortname)) {
@@ -234,24 +234,20 @@ class filter_filtercodes extends moodle_text_filter {
      * Retrieves the URL for the user's profile picture, if one is available.
      *
      * @param object $user The Moodle user object for which we want a photo.
+     * @param mixed $size Can be sm|md|lg or an integer 2|1|3 or an integer size in pixels > 3.
      * @return string URL to the photo image file but with $1 for the size.
      */
-    private function getprofilepictureurl($user) {
-        if (isloggedin() && !isguestuser() && $user->picture > 0) {
-            $usercontext = context_user::instance($user->id, IGNORE_MISSING);
-            $url = moodle_url::make_pluginfile_url($usercontext->id, 'user', 'icon', null, '/', "f$1")
-                    . '?rev=' . $user->picture;
-        } else {
-            // If the user does not have a profile picture, use the default faceless picture.
-            global $PAGE, $CFG;
-            $renderer = $PAGE->get_renderer('core');
-            if ($CFG->branch >= 33) {
-                $url = $renderer->image_url('u/f$1');
-            } else {
-                $url = $renderer->pix_url('u/f$1'); // Deprecated as of Moodle 3.3.
-            }
+    private function getprofilepictureurl($user, $size = 'md') {
+        global $PAGE;
+
+        $sizes = ['sm' => 35, '2' => 35, 'md' => 100, '1' => 100, 'lg' => 512, '3' => 512];
+        if (empty($px = $sizes[$size])) {
+            $px = $size; // Size was specified in pixels.
         }
-        return str_replace('/f%24', '/f$', $url);
+        $userpicture = new user_picture($user);
+        $userpicture->size = $px; // Size in pixels.
+        $url = $userpicture->get_url($PAGE);
+        return $url;
     }
 
     /**
@@ -473,14 +469,14 @@ class filter_filtercodes extends moodle_text_filter {
     }
 
     /**
-     * Render course cards for list of course ids.
+     * Render course cards for list of course ids. Not visible for hidden courses or if it has expired.
      *
      * @param array $rcourseids Array of course ids.
      * @param string $format orientation/layout of course cards.
      * @return string HTML of course cars.
      */
     private function rendercoursecards($rcourseids, $format = 'vertical') {
-        global $OUTPUT, $PAGE, $SITE;
+        global $CFG, $OUTPUT, $PAGE, $SITE;
 
         $content = '';
         $isadmin = (is_siteadmin() && !is_role_switched($PAGE->course->id));
@@ -491,9 +487,11 @@ class filter_filtercodes extends moodle_text_filter {
             }
             $course = get_course($courseid);
             $context = context_course::instance($course->id);
-            // Skip if the course is not visible to user or course is site.
-            $visible = ($course->visible && !empty($course->enddate) && time() < $course->enddate);
+            // Course will be displayed if its visibility is set to Show AND (either has no end date OR a future end date).
+            $visible = ($course->visible && (empty($course->enddate) || time() < $course->enddate));
+            // Courses not visible will be still visible to site admins or users with viewhiddencourses capability.
             if (!$visible && !($isadmin || has_capability('moodle/course:viewhiddencourses', $context))) {
+                // Skip if the course is not visible to user or course is the "site".
                 continue;
             }
 
@@ -504,14 +502,18 @@ class filter_filtercodes extends moodle_text_filter {
             }
             $coursefiles = $course->get_course_overviewfiles();
             $imgurl = '';
-            foreach ($coursefiles as $file) {
-                if ($isimage = $file->is_valid_image()) {
-                    // The file_encode_url() function is deprecated as per MDL-31071 but still in wide use.
-                    $imgurl = file_encode_url("/pluginfile.php", '/' . $file->get_contextid() . '/'
-                            . $file->get_component() . '/' . $file->get_filearea() . $file->get_filepath()
-                            . $file->get_filename(), !$isimage);
-                    $imgurl = new moodle_url($imgurl);
-                    break;
+            if ($CFG->branch >= 311) {
+                $imgurl = \core_course\external\course_summary_exporter::get_course_image($course);
+            } else { // Previous to Moodle 3.11.
+                foreach ($coursefiles as $file) {
+                    if ($isimage = $file->is_valid_image()) {
+                            // The file_encode_url() function is deprecated as per MDL-31071 but still in wide use.
+                            $imgurl = file_encode_url("/pluginfile.php", '/' . $file->get_contextid() . '/'
+                                    . $file->get_component() . '/' . $file->get_filearea() . $file->get_filepath()
+                                    . $file->get_filename(), !$isimage);
+                            $imgurl = new moodle_url($imgurl);
+                            break;
+                    }
                 }
             }
             if (empty($imgurl)) {
@@ -527,7 +529,7 @@ class filter_filtercodes extends moodle_text_filter {
                         <div class="card-img-top" style="background-image:url(' . $imgurl
                                 . ');height:100px;max-width:300px;padding-top:50%;background-size:cover;'
                                 . 'background-repeat:no-repeat;background-position:center;"></div>
-                        <div class="card-title pt-1 pr-3 pb-1 pl-3 m-0"><span class="sr-only">' . get_string('course'). ': </span>'
+                        <div class="card-title pt-1 pr-3 pb-1 pl-3 m-0"><span class="sr-only">' . get_string('course') . ': </span>'
                                  . $course->get_formatted_name() . '</div>
                         </a>
                     </div>
@@ -553,17 +555,17 @@ class filter_filtercodes extends moodle_text_filter {
                                 <div class="card-body">
                                     <p class="card-text text-category" style="float:right">
                                         <small class="text-muted"><span class="sr-only">'
-                                            . get_string('category'). ': </span>' . $category .
+                                            . get_string('category') . ': </span>' . $category .
                                         '</small>
                                     </p>
                                     <h3 class="card-title">
                                         <a href="' . $courseurl . '" class="text-normal h-100">
-                                            <span class="sr-only">' . get_string('course'). ': </span>'
+                                            <span class="sr-only">' . get_string('course') . ': </span>'
                                             . $course->get_formatted_name() .
                                         '</a>
                                     </h3>
                                     <div class="card-text text-summary"><span class="sr-only">'
-                                            . get_string('summary'). ': </span>' . $summary .
+                                            . get_string('summary') . ': </span>' . $summary .
                                     '</div>
                                 </div>
                             </div>
@@ -630,7 +632,6 @@ class filter_filtercodes extends moodle_text_filter {
                 $cards->header = '<div class="d-flex"><div>';
                 $cards->footer = '</div></div>';
                 break;
-                return $cards;
             default:
                 $cards->format = 'vertical';
                 $cards->header = '<div class="card-deck mr-0">';
@@ -654,7 +655,7 @@ class filter_filtercodes extends moodle_text_filter {
         }
         switch ($clinktype) {
             case 'email':
-                $link = '<a href="mailto:'. $user->email . '">'  . $name . '</a>';
+                $link = '<a href="mailto:' . $user->email . '">'  . $name . '</a>';
                 break;
             case 'message':
                 $link = '<a href="' . new moodle_url('/message/index.php', ['id' => $user->id]) . '">' . $name . '</a>';
@@ -662,8 +663,12 @@ class filter_filtercodes extends moodle_text_filter {
             case 'profile':
                 $link = '<a href="' . new moodle_url('/user/profile.php', ['id' => $user->id]) . '">' . $name . '</a>';
                 break;
-            case 'phone1' && !empty($user->phone1):
-                $link = '<a href="tel:' . $user->phone1 . '">' . $name . '</a>';
+            case 'phone1':
+                if (!empty($user->phone1)) {
+                    $link = '<a href="tel:' . $user->phone1 . '">' . $name . '</a>';
+                } else {
+                    $link = $name;
+                }
                 break;
             default:
                 $link = $name;
@@ -706,112 +711,47 @@ class filter_filtercodes extends moodle_text_filter {
             global $PAGE;
             $course = $PAGE->course;
             $progresspercent = -1; // Disabled: -1.
-            if ($course->enablecompletion == 1
+            if (
+                    $course->enablecompletion == 1
                     && isloggedin()
                     && !isguestuser()
-                    && context_system::instance() != 'page-site-index') {
+                    && context_system::instance() != 'page-site-index'
+            ) {
                 $progresspercent = (int) \core_completion\progress::get_course_progress_percentage($course);
             }
         }
 
         return $progresspercent;
     }
+    /**
+     * Date valitation called by ifbetween, ifbefore and ifafter tags.
+     * dapiawej November 8, 2023
+     * @return bool if true or false
+     */
+    public function validateDate($date, $format = 'd/m/Y H:i:s') {
+        $d = DateTime::createFromFormat($format, $date);
+        return $d && $d->format($format) === $date;
+    }
 
     /**
-     * Main filter function called by Moodle.
+     * Generator Tags
      *
-     * @param string $text   Content to be filtered.
-     * @param array $options Moodle filter options. None are implemented in this plugin.
-     * @return string Content with filters applied.
+     * This function processes tags that generate content that could potentially include additional tags.
+     *
+     * @param string $text The unprocessed text. Passed by refernce.
+     * @return boolean True of there are more tags to be processed, otherwise false.
      */
-    public function filter($text, array $options = []) {
-        global $CFG, $SITE, $PAGE, $USER, $DB;
-
-        if (strpos($text, '{') === false && strpos($text, '%7B') === false) {
-            return $text;
-        }
+    private function generatortags(&$text) {
+        global $CFG, $PAGE, $DB;
 
         $replace = []; // Array of key/value filterobjects.
-        $changed = false; // Will be true if there were any changes.
 
-        // Handle escaped tags to be ignored.
-
-        // Determine if the option to {escape braces}] is enabled.
-        if (!empty(get_config('filter_filtercodes', 'escapebraces'))) {
-            // Temporarily escaped tags these with non-printable character. Will be re-adjusted after processing tags.
-            $escapedtags = (strpos($text, '[{') !== false && strpos($text, '}]') !== false);
-            if ($escapedtags) {
-                $text = str_replace('[{', chr(2), $text);
-                $text = str_replace('}]', chr(3), $text);
-            }
-            // Temporarily escaped tags these with non-printable character. Will be re-adjusted after processing tags.
-            $escapedtagsenc = (strpos($text, '[%7B') !== false && strpos($text, '%7D]') !== false);
-            if ($escapedtagsenc) {
-                $text = str_replace('[%7B', chr(4), $text);
-                $text = str_replace('%7D]', chr(5), $text);
-            }
-        } else {
-            $escapedtags = false;
-            $escapedtagsenc = false;
-        }
-
-        // START: Process tags that may end up containing other tags first.
-
-        // This tag: {form...}.
-        if (stripos($text, '{form') !== false) {
-            $pre = '<form action="{wwwcontactform}" method="post" class="cf ';
-            $post = '</form>';
-            $options = ['noclean' => true, 'para' => false, 'newlines' => false];
-            // These require that you already be logged-in.
-            foreach (['formquickquestion', 'formcheckin'] as $form) {
-                if (stripos($text, '{' . $form . '}') !== false) {
-                    if (isloggedin() && !isguestuser()) {
-                        $formcode = get_string($form, 'filter_filtercodes');
-                        $replace['/\{' . $form . '\}/i'] = $pre . $form . '">' . get_string($form, 'filter_filtercodes') . $post;
-                    } else {
-                        $replace['/\{' . $form . '\}/i'] = '';
-                    }
-                }
-            }
-            // These work regardless of whether you are logged-in or not.
-            foreach (['formcontactus', 'formcourserequest', 'formsupport'] as $form) {
-                if (stripos($text, '{' . $form . '}') !== false) {
-                    $formcode = get_string($form, 'filter_filtercodes');
-                    $replace['/\{' . $form . '\}/i'] = $pre . $form . '">' . $formcode . $post;
-                } else {
-                    $replace['/\{' . $form . '\}/i'] = '';
-                }
-            }
-
-            // Tag: {formsesskey}.
-            if (stripos($text, '{formsesskey}') !== false) {
-                $replace['/\{formsesskey\}/i'] = '<input type="hidden" id="sesskey" name="sesskey" value="">';
-                $replace['/\{formsesskey\}/i'] .= '<script>document.getElementById(\'sesskey\').value = M.cfg.sesskey;</script>';
-            }
-        }
-
-        // Tag: {global_[custom]}. Global Custom tags as defined in plugin settings.
-        if (stripos($text, '{global_') !== false) {
-            // Get total number of defined global block tags.
-            $globaltagcount = get_config('filter_filtercodes', 'globaltagcount');
-            for ($i = 1; $i <= $globaltagcount; $i++) {
-                // Get name of tag.
-                $tag = get_config('filter_filtercodes', 'globalname' . $i);
-                // If defined and tag exists in the content.
-                if (!empty($tag) && stripos($text, '{global_' . $tag . '}') !== false) {
-                    // Replace the tag with new content.
-                    $content = get_config('filter_filtercodes', 'globalcontent' . $i);
-                    $replace['/\{global_' . $tag . '\}/i'] = $content;
-                }
-            }
-            unset($i);
-            unset($globaltagcount);
-            unset($tag);
-            unset($content);
-        }
-
-        // This tag: {menuadmin}.
+        // Tag: {menuadmin}.
+        // Description: Displays a menu of useful links for site administrators when added to the custom menu.
+        // Parameters: None.
         if (stripos($text, '{menuadmin}') !== false) {
+            $menadmin = "{menuadmin}";
+            if (!restricttag($menadmin)){
             $theme = $PAGE->theme->name;
             $menu = '';
             if ($this->hasminarchetype('editingteacher')) {
@@ -880,10 +820,21 @@ class filter_filtercodes extends moodle_text_filter {
                         '|/admin/index.php' . PHP_EOL;
             }
             $replace['/\{menuadmin\}/i'] = $menu;
+            
+            }else {
+            $replace['/\{menuadmin\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+            <strong>{menuadmin}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
+    
+             }
         }
 
-        // This tag: {menudev}.
+        // Tag: {menudev}.
+        // Description: Displays a menu of useful links for site administrators when added to the custom menu.
+        // Parameters: None.
         if (stripos($text, '{menudev}') !== false) {
+            $mendev = "{menudev}";
+            if (!restricttag($mendev)){
+              
             $menu = '';
             if (is_siteadmin() && !is_role_switched($PAGE->course->id)) { // If a site administrator.
                 $menu .= '-{getstring:tool_installaddon}installaddons{/getstring}|/admin/tool/installaddon' . PHP_EOL;
@@ -934,19 +885,154 @@ class filter_filtercodes extends moodle_text_filter {
                         PHP_EOL;
             }
             $replace['/\{menudev\}/i'] = $menu;
+            }else {
+                $replace['/\{menudev\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                <strong>{menudev}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
+        
+            }
         }
 
-        // This tag: {teamcards}.
+        // Tag: {menuthemes}.
+        // Description: Theme switcher for custom menu. Only for administrators. Not available after POST.
+        // Parameters: None.
+        // Allow Theme Changes on URL must be enabled for this to have any effect.
+        if (stripos($text, '{menuthemes}') !== false) {
+            $menu = '';
+            if (is_siteadmin() && empty($_POST)) { // If a site administrator.
+                if (get_config('core', 'allowthemechangeonurl')) {
+                    $url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http")
+                        . "://{$_SERVER['HTTP_HOST']}{$_SERVER['REQUEST_URI']}";
+                    $url .= (strpos($url, '?') ? '&' : '?');
+                    $themeslist = core_component::get_plugin_list('theme');
+                    $menu = '';
+                    foreach ($themeslist as $theme => $themedir) {
+                        $themename = ucfirst(get_string('pluginname', 'theme_' . $theme));
+                        $menu .= '-' . $themename . '|' . $url . 'theme=' . $theme . PHP_EOL;
+                    }
+                    if (!empty($menu)) {
+                        $menu = 'Themes' . PHP_EOL . $menu;
+                    }
+                }
+            }
+            $replace['/\{menuthemes\}/i'] = $menu;
+        }
+
+        // Check if any {course*} or %7Bcourse*%7D tags. Note: There is another course tags section further down.
+        $coursetagsexist = (stripos($text, '{course') !== false || stripos($text, '%7Bcourse') !== false);
+        if ($coursetagsexist) {
+            // Tag: {coursesummary} or {coursesummary courseid}.
+            // Description: Course summary as defined in the course settings.
+            // Optional parameters: Course id. Default is to use the current course, or site summary if not in a course.
+            if (stripos($text, '{coursesummary') !== false) {
+                if (stripos($text, '{coursesummary}') !== false) {
+                    // No course ID specified.
+                    $coursecontext = context_course::instance($PAGE->course->id);
+                    $PAGE->course->summary == null ? '' : $PAGE->course->summary;
+                    $replace['/\{coursesummary\}/i'] = format_text(
+                        $PAGE->course->summary,
+                        FORMAT_HTML,
+                        ['context' => $coursecontext]
+                    );
+                }
+                if (stripos($text, '{coursesummary ') !== false) {
+                    // Course ID was specified.
+                    preg_match_all('/\{coursesummary ([0-9]+)\}/', $text, $matches);
+                    // Eliminate course IDs.
+                    $courseids = array_unique($matches[1]);
+                    $coursecontext = context_course::instance($PAGE->course->id);
+                    foreach ($courseids as $id) {
+                        $course = $DB->get_record('course', ['id' => $id]);
+                        if (!empty($course)) {
+                            $course->summary == null ? '' : $course->summary;
+                            $replace['/\{coursesummary ' . $course->id . '\}/isuU'] = format_text(
+                                $course->summary,
+                                FORMAT_HTML,
+                                ['context' => $coursecontext]
+                            );
+                        }
+                    }
+                    unset($matches, $course, $courseids, $id);
+                }
+            }
+        }
+
+        // Tag: {formquickquestion}
+        // Tag: {formcheckin}
+        // Tag: {formcontactus}
+        // Tag: {formcourserequest}
+        // Tag: {formsupport}
+        // Tag: {formsesskey}
+        //
+        // Description: Tags used to generate pre-define forms for use with ContactForm plugin.
+        // Parameters: None.
+        if (stripos($text, '{form') !== false) {
+            $pre = '<form action="{wwwcontactform}" method="post" class="cf ';
+            $post = '</form>';
+            $options = ['noclean' => true, 'para' => false, 'newlines' => false];
+            // These require that you already be logged-in.
+            foreach (['formquickquestion', 'formcheckin'] as $form) {
+                if (stripos($text, '{' . $form . '}') !== false) {
+                    if (isloggedin() && !isguestuser()) {
+                        $formcode = get_string($form, 'filter_filtercodes');
+                        $replace['/\{' . $form . '\}/i'] = $pre . $form . '">' . get_string($form, 'filter_filtercodes') . $post;
+                    } else {
+                        $replace['/\{' . $form . '\}/i'] = '';
+                    }
+                }
+            }
+            // These work regardless of whether you are logged-in or not.
+            foreach (['formcontactus', 'formcourserequest', 'formsupport'] as $form) {
+                if (stripos($text, '{' . $form . '}') !== false) {
+                    $formcode = get_string($form, 'filter_filtercodes');
+                    $replace['/\{' . $form . '\}/i'] = $pre . $form . '">' . $formcode . $post;
+                } else {
+                    $replace['/\{' . $form . '\}/i'] = '';
+                }
+            }
+
+            // Tag: {formsesskey}.
+            if (stripos($text, '{formsesskey}') !== false) {
+                $replace['/\{formsesskey\}/i'] = '<input type="hidden" id="sesskey" name="sesskey" value="">';
+                $replace['/\{formsesskey\}/i'] .= '<script>document.getElementById(\'sesskey\').value = M.cfg.sesskey;</script>';
+            }
+        }
+
+        // Tag: {global_[custom]}.
+        // Description: Global Custom tags as defined in plugin settings.
+        // Parameters: custom: Name of custom global tag from FilterCodes settings.
+        if (stripos($text, '{global_') !== false) {
+            // Get total number of defined global block tags.
+            $globaltagcount = get_config('filter_filtercodes', 'globaltagcount');
+            for ($i = 1; $i <= $globaltagcount; $i++) {
+                // Get name of tag.
+                $tag = get_config('filter_filtercodes', 'globalname' . $i);
+                // If defined and tag exists in the content.
+                if (!empty($tag) && stripos($text, '{global_' . $tag . '}') !== false) {
+                    // Replace the tag with new content.
+                    $content = get_config('filter_filtercodes', 'globalcontent' . $i);
+                    $replace['/\{global_' . $tag . '\}/i'] = $content;
+                }
+            }
+            unset($i);
+            unset($globaltagcount);
+            unset($tag);
+            unset($content);
+        }
+
+        // Tag: {teamcards}.
+        // Description: Displays a series of card for each contact on the site. Configurable in FilterCodes settings.
+        // Note: Included selected roles in Site Administration > Appearance > Course > Course Contacts.
+        // Parameters: None.
         if (stripos($text, '{teamcards}') !== false) {
-            global $OUTPUT;
+            global $OUTPUT, $DB;
 
             $sql = 'SELECT DISTINCT u.id, u.username, u.firstname, u.lastname, u.email, u.picture, u.imagealt, u.firstnamephonetic,
                     u.lastnamephonetic, u.middlename, u.alternatename, u.description, u.phone1
                     FROM {course} c, {role_assignments} ra, {user} u, {context} ct
-                    WHERE c.id = ct.instanceid AND ra.roleid = 3 AND ra.userid = u.id AND ct.id = ra.contextid
+                    WHERE c.id = ct.instanceid AND ra.roleid in (?) AND ra.userid = u.id AND ct.id = ra.contextid
                         AND u.suspended = 0 AND u.deleted = 0
                     ORDER BY u.lastname desc, u.firstname';
-            $users = $DB->get_records_sql($sql);
+            $users = $DB->get_records_sql($sql, [$CFG->coursecontact]);
 
             $cards = '';
             if (count($users)) {
@@ -954,7 +1040,7 @@ class filter_filtercodes extends moodle_text_filter {
                 $cardformat = get_config('filter_filtercodes', 'teamcardsformat');
                 $narrowpage = get_config('filter_filtercodes', 'narrowpage');
 
-                switch($cardformat) { // Show as info icon.
+                switch ($cardformat) { // Show as info icon.
                     case 'infoicon':
                         $info = get_string('info');
                         $prewrap = '<a class="btn btn-link p-0 m-0 align-baseline" role="button" data-container="body"'
@@ -974,11 +1060,12 @@ class filter_filtercodes extends moodle_text_filter {
                 }
 
                 // Prepare some strings.
-                $linksr = ['' => '',
+                $linksr = [
+                        '' => '',
                         'email' => get_string('issueremail', 'badges'),
                         'message' => get_string('message', 'message'),
                         'profile' => get_string('profile'),
-                        'phone' => get_string('phone')
+                        'phone' => get_string('phone'),
                 ];
                 if ($cardformat == 'verbose') {
                     if (empty($CFG->enablegravatar)) {
@@ -991,9 +1078,11 @@ class filter_filtercodes extends moodle_text_filter {
                         if (empty($user->picture) && empty($CFG->enablegravatar)) {
                             $cards .= '<img src="' . $blankavatarurl . '" class="img-fluid" width="150" height="150" alt="">';
                         } else {
-                            $cards .= $OUTPUT->user_picture($user, ['size' => '150',
+                            $cards .= $OUTPUT->user_picture($user, [
+                                    'size' => '150',
                                     'class' => 'img-fluid pull-left p-1 border mr-4',
-                                    'link' => false, 'visibletoscreenreaders' => false]);
+                                    'link' => false, 'visibletoscreenreaders' => false,
+                            ]);
                         }
                         $cards .= format_string($user->description);
                         $cards .= '</div><hr>';
@@ -1008,8 +1097,12 @@ class filter_filtercodes extends moodle_text_filter {
                         if (empty($user->picture) && empty($CFG->enablegravatar)) {
                             $cards .= '<img src="' . $blankavatarurl . '" class="img-fluid" width="250" height="250" alt="">';
                         } else {
-                            $cards .= $OUTPUT->user_picture($user, ['size' => '250', 'class' => 'img-fluid',
-                                    'link' => false, 'visibletoscreenreaders' => false]);
+                            $cards .= $OUTPUT->user_picture($user, [
+                                    'size' => '250',
+                                    'class' => 'img-fluid',
+                                    'link' => false,
+                                    'visibletoscreenreaders' => false,
+                                ]);
                         }
                         $name = '<br><h3 class="h5 font-weight-bold d-inline">' . get_string('fullnamedisplay', null, $user) .
                                 '</h3>';
@@ -1026,49 +1119,252 @@ class filter_filtercodes extends moodle_text_filter {
             unset($cards, $users, $sql, $info, $prewrap, $postwrap, $cardformat);
         }
 
+        // Custom Course Fields - First implemented in Moodle 3.7.
+        if ($CFG->branch >= 37) {
+            // Tag: {course_field_shortname}.
+            // Description: Content from the custom course field specified by its shortname.
+            // Required Parameters: shortname of a custom course field.
+            if (stripos($text, '{course_field_') !== false) {
+                // Cached the custom course field data.
+                static $coursefields;
+                if (!isset($coursefields)) {
+                    $handler = core_course\customfield\course_handler::create();
+                    $coursefields = $handler->export_instance_data_object($PAGE->course->id, true);
+                    $fieldsvisible = $handler->export_instance_data_object($PAGE->course->id);
+                    // Blank out the fields that should not be displayed.
+                    foreach ($coursefields as $field => $value) {
+                        if (empty($fieldsvisible->$field)) {
+                            $coursefields->$field = '';
+                        }
+                    }
+                }
+                $coursecontext = context_course::instance($PAGE->course->id);
+                foreach ($coursefields as $field => $value) {
+                    $shortname = strtolower($field);
+                    // If the tag exists and it is not hidden in the custom course field's settings.
+                    if (stripos($text, '{course_field_' . $shortname . '}') !== false) {
+                        $replace['/\{course_field_' . $shortname . '\}/i'] = format_text(
+                            $value,
+                            FORMAT_HTML,
+                            ['context' => $coursecontext]
+                        );
+                    }
+                }
+            }
+
+            // Tag: {course_fields}.
+            // Description: All content from the custom user profile fields specified by shortname as set in the user's profile.
+            // Parameters: None.
+            if (stripos($text, '{course_fields}') !== false) {
+                // Display all custom course fields.
+                $customfields = '';
+                if ($PAGE->course instanceof stdClass) {
+                    $thiscourse = new \core_course_list_element($PAGE->course);
+                }
+                if ($thiscourse->has_custom_fields()) {
+                    $handler = \core_course\customfield\course_handler::create();
+                    $customfields = $handler->display_custom_fields_data($thiscourse->get_custom_fields());
+                }
+                $coursecontext = context_course::instance($PAGE->course->id);
+                $replace['/\{course_fields\}/i'] = format_text($customfields, FORMAT_HTML, ['context' => $coursecontext]);
+            }
+        }
+
+        /* ---------------- Apply all of the filtercodes so far. ---------------*/
+
+        return $this->replacetags($text, $replace);
+    }
+
+    /**
+     * Handle escaped tags.
+     *
+     * @param string $text Content to be processed.
+     * @return string Processed text.
+     *
+     * Note: First time this function is called, it will mark all tags that should not be processed.
+     *       The second time it is called, it will turn escaped tags back into unprocessed plain text tags.
+     */
+    private function escapedtags($text) {
+        static $escapedtags;
+        static $escapedtagsenc;
+
+        if (!isset($escapedtags)) {
+            // First time, escape tags.
+            if (!empty(get_config('filter_filtercodes', 'escapebraces'))) {
+                // Temporarily escaped tags these with non-printable character. Will be re-adjusted after processing tags.
+                $escapedtags = (strpos($text, '[{') !== false && strpos($text, '}]') !== false);
+                if ($escapedtags) {
+                    $text = str_replace('[{', chr(2), $text);
+                    $text = str_replace('}]', chr(3), $text);
+                }
+                // Temporarily escaped tags these with non-printable character. Will be re-adjusted after processing tags.
+                $escapedtagsenc = (strpos($text, '[%7B') !== false && strpos($text, '%7D]') !== false);
+                if ($escapedtagsenc) {
+                    $text = str_replace('[%7B', chr(4), $text);
+                    $text = str_replace('%7D]', chr(5), $text);
+                }
+            } else {
+                $escapedtags = false;
+                $escapedtagsenc = false;
+            }
+        } else {
+            // Complete the process of replacing escaped tags with single braces.
+            if ($escapedtags) {
+                $text = str_replace(chr(2), '{', $text);
+                $text = str_replace(chr(3), '}', $text);
+            }
+            // Complete the process of replacing escaped tags with single escaped braces.
+            if ($escapedtagsenc) {
+                $text = str_replace(chr(4), '%7B', $text);
+                $text = str_replace(chr(5), '%7D', $text);
+            }
+        }
+        return $text;
+    }
+
+    /**
+     * Applies all filters defined in $replace to the $text.
+     *
+     * @param string $text Content to be processed. Passed by reference.
+     * @param array $replace Array in the format Key=Regex, Value=To be applied. Passed by reference.
+     * @return boolean True of there are more changes, otherwise false.
+     */
+    private function replacetags(&$text, &$replace) {
+        $newtext = null;
+        $moretags = true;
+        if (count($replace) > 0) {
+            $newtext = preg_replace(array_keys($replace), array_values($replace), $text);
+            if (!is_null($newtext)) {
+                $text = $newtext;
+                if (strpos($text, '{') === false && strpos($text, '%7B') === false) {
+                    // No more tags? Put back the escaped tags, if any and return false.
+                    $text = $this->escapedtags($text);
+                    $moretags = false;
+                }
+            }
+            $replace = [];
+        }
+        return $moretags;
+    }
+
+    /**
+     * Main filter function called by Moodle.
+     *
+     * @param string $text   Content to be filtered.
+     * @param array $options Moodle filter options. None are implemented in this plugin.
+     * @return string Content with filters applied.
+     */
+    public function filter($text, array $options = []) {
+        global $CFG, $SITE, $PAGE, $USER, $DB;
+
+        if (strpos($text, '{') === false && strpos($text, '%7B') === false) {
+            return $text;
+        }
+
+        // Declare some of the static variables.
+        static $profilefields;
+        static $profiledata;
+        static $mygroupslist;
+
+        $replace = []; // Array of key/value filterobjects.
+
+        // Handle escaped tags to be ignored. Remove them so they don't get processed if the option to [{escape braces}] is enabled.
+        $text = $this->escapedtags($text);
+
+        // START: Process tags that may end up containing other tags first.
+
+        // ...===================================================================================================================.
+        // Tags that may create more content which could possibly include tags. These need to be processed first.
+        // ...===================================================================================================================.
+
+        // Loop through the tags that may have embedded tags until these generator tags have all been proceseed.
+
+        $loop = 0; // We only support tags nested up to 3 deep - to handle circular references.
+        do {
+            $moretags = $this->generatortags($text);
+        } while ($loop++ < 3 && $moretags);
+
+        // We can now process all other tags including ones added by the code above.
+
+        // ...===================================================================================================================.
+        // Tags that may be used as parameters by other tags shoud be processed before the tags that may include them.
+        // ...===================================================================================================================.
+
         // Tag: {lang}.
+        // Description: First 2-letters, in lowercase, of current language of user interface.
+        // Parameters: None.
         if (stripos($text, '{lang}') !== false) {
             // Replace with 2-letter current primary language.
             $replace['/\{lang\}/i'] = substr(current_language(), 0, 2);
         }
 
-        // Tag: {idnumber}.
-        if (stripos($text, '{idnumber}') !== false) {
-            $replace['/\{idnumber\}/i'] = isloggedin() && !isguestuser() ? $USER->idnumber : '';
+        // Tag: {preferredlanguage}.
+        // Description: First 2-letters, in lowercase, of the user's preferred language as set in their profile.
+        // Parameters: None.
+        if (stripos($text, '{preferredlanguage}') !== false) {
+            if (isloggedin() && !isguestuser()) {
+                // If user does not have a preferred language, default to the system default language.
+                $preflang = empty($USER->lang) ? $CFG->lang : $USER->lang;
+                if ($preflang == 'en') {
+                    $langconfig = $CFG->dirroot . '/lang/en/langconfig.php';
+                } else {
+                    $langconfig = $CFG->dataroot . '/lang/' . $preflang . '/langconfig.php';
+                }
+                // Ignore parents here for now.
+                $string = [];
+                include($langconfig);
+                if (!empty($string['thislanguage'])) {
+                    $replace['/\{preferredlanguage\}/i'] = '<span lang="' . $preflang . '">' . $string['thislanguage'] . '</span>';
+                } else { // This should never happen since the known user already exists.
+                    $replace['/\{preferredlanguage\}/i'] = get_string('unknown', 'notes');
+                }
+            } else {
+                $replace['/\{preferredlanguage\}/i'] = '';
+            }
+            unset($preflang, $langconfig, $string);
         }
 
-        // Check if any {course*} or %7Bcourse*%7D tags. Note: There is another course tags section further down.
-        $coursetagsexist = (stripos($text, '{course') !== false);
-        if ($coursetagsexist) {
+        // Tag: %7Buserid%7D.
+        // Description: Alias for {userid}. Useful for encoded urls.
+        // Parameters: None.
+        if (stripos($text, '%7Buserid%7D') !== false) {
+            $text = str_replace('%7Buserid%7D', '{userid}', $text);
+        }
 
-            // Tag: {coursesummary}.
-            if (stripos($text, '{coursesummary') !== false) {
-                if (stripos($text, '{coursesummary}') !== false) {
-                    // No course ID specified.
-                    $coursecontext = context_course::instance($PAGE->course->id);
-                    $PAGE->course->summary == null ? '' : $PAGE->course->summary;
-                    $replace['/\{coursesummary\}/i'] = format_text($PAGE->course->summary, FORMAT_HTML,
-                            ['context' => $coursecontext]);
-                }
-                if (stripos($text, '{coursesummary ') !== false) {
-                    // Course ID was specified.
-                    preg_match_all('/\{coursesummary ([0-9]+)\}/', $text, $matches);
-                    // Eliminate course IDs.
-                    $courseids = array_unique($matches[1]);
-                    $coursecontext = context_course::instance($PAGE->course->id);
-                    foreach ($courseids as $id) {
-                        $course = $DB->get_record('course', ['id' => $id]);
-                        if (!empty($course)) {
-                            $course->summary == null ? '' : $course->summary;
-                            $replace['/\{coursesummary ' . $course->id . '\}/isuU'] = format_text($course->summary, FORMAT_HTML,
-                                    ['context' => $coursecontext]);;
-                        }
-                    }
-                    unset($matches, $course, $courseids, $id);
-                }
+        // Tag: {userid}.
+        // Description: User's user ID.
+        // Parameters: None.
+        if (stripos($text, '{userid}') !== false) {
+            $replace['/\{userid\}/i'] = $USER->id;
+        }
+
+        // Tags: {courseid...
+        if (stripos($text, '{course') !== false || stripos($text, '%7Bcourseid') !== false) {
+            $courseid = 1; // Default to site.
+            if ($PAGE->pagetype == 'enrol-index') {
+                // Make it work, even when we are on the enrolment page.
+                $courseid = optional_param('id', $courseid, PARAM_INT);
+            } else {
+                $courseid = $PAGE->course->id;
             }
 
-            // Tag: {coursegradepercent} - Calculate and display current overall course grade as a percentage.
+            // Tag: %7Bcourseid%7D.
+            // Description: An alias for {courseid}. Useful for encoded URLs.
+            // Parameters: None.
+            if (stripos($text, '%7Bcourseid%7D') !== false) {
+                $text = str_replace('%7Bcourseid%7D', '{courseid}', $text);
+            }
+
+            // Tag: {courseid}.
+            // Description: Course ID. Will be 1 (SITE) if not in a course.
+            // Parameters: None.
+            if (stripos($text, '{courseid}') !== false) {
+                $replace['/\{courseid\}/i'] = $courseid;
+            }
+
+            // Tag: {coursegradepercent}.
+            // Description: Current overall course grade as a percentage.
+            // Parameters:  None.
             if (version_compare(PHP_VERSION, '7.0.0') >= 0 && stripos($text, '{coursegradepercent}') !== false) {
                 require_once($CFG->libdir . '/gradelib.php');
                 require_once($CFG->dirroot . '/grade/querylib.php');
@@ -1082,7 +1378,9 @@ class filter_filtercodes extends moodle_text_filter {
                 $replace['/\{coursegradepercent\}/i'] = $grade;
             }
 
-            // Course completion progress percentage as a number.
+            // Tag: {courseprogresspercent}.
+            // Description: Course completion progress percentage as a number.
+            // Parameters: None.
             if (stripos($text, '{courseprogresspercent}') !== false) {
                 $progress = $this->completionprogress();
                 if ($progress != -1) { // Is enabled.
@@ -1093,74 +1391,408 @@ class filter_filtercodes extends moodle_text_filter {
                 unset($progress);
             }
 
-            // Tag: {courseid} and %7Bcourseid%7D.
-            if (stripos($text, 'courseid') !== false) {
-                $courseid = 1;
-                if ($PAGE->pagetype == 'enrol-index') {
-                    $courseid = optional_param('id', 1, PARAM_INT);
-                } else {
-                    $courseid = $PAGE->course->id;
-                }
-                // Tag: {courseid} and %7Bcourseid%7D.
-                if (stripos($text, '{courseid}') !== false) {
-                    $replace['/\{courseid\}/i'] = $courseid;
-                }
-                // Alternative Tag: %7Bcourseid%7D (for encoded URLs).
-                if (stripos($text, '%7Bcourseid%7D') !== false) {
-                    $replace['/%7Bcourseid%7D/i'] = $PAGE->course->id;
-                }
+            // Tag: %7Bcoursecontextid%7D.
+            // Description: Alias for {coursecontextid}. Useful for encoded URLs.
+            // Parameters: None.
+            if (stripos($text, '%7Bcoursecontextid%7D') !== false) {
+                $text = str_replace('%7Bcoursecontextid%7D', '{coursecontextid}', $text);
             }
 
             // Tag: {coursecontextid}.
+            // Description: Course context id.
+            // Parameters: None.
             if (stripos($text, '{coursecontextid}') !== false) {
                 $context = context_course::instance($PAGE->course->id);
                 $coursecontextid = isset($PAGE->course->id) ? $context->id : 1;
                 $replace['/\{coursecontextid\}/i'] = $coursecontextid;
             }
-            // Alternative Tag:  %7Bcoursecontextid%7D (for encoded URLs).
-            if (stripos($text, '%7Bcoursecontextid%7D') !== false) {
-                $context = context_course::instance($PAGE->course->id);
-                $coursecontextid = isset($PAGE->course->id) ? $context->id : 1;
-                $replace['/%7Bcoursecontextid%7D/i'] = $coursecontextid;
-            }
 
-            // Tag: %7Bcoursemoduleid%7D (escaped).
+            // Tag: %7Bcoursemoduleid%7D.
+            // Description: Alias for {coursemoduleid}. Useful for encoded URLs.
+            // Parameters: None.
             if (stripos($text, '%7Bcoursemoduleid%7D') !== false) {
-                if (isset($PAGE->cm->id)) {
-                    $replace['/\%7Bcoursemoduleid%7D/i'] = @$PAGE->cm->id;
-                }
+                $text = str_replace('7Bcoursemoduleid%7D', '{coursemoduleid}', $text);
             }
 
-            // Tag: {coursemoduleid} (not escaped).
+            // Tag: {coursemoduleid}.
+            // Description: Course module id.
+            // Parameters: None.
+            // Note: %7Bcoursemoduleid%7D is an alias for {coursemoduleid}. Useful for encoded URLs.
             if (stripos($text, '{coursemoduleid}') !== false) {
                 if (isset($PAGE->cm->id)) {
                     $replace['/\{coursemoduleid\}/isu'] = $PAGE->cm->id;
                 }
             }
 
+            // Tag: {courseshortname}.
+            // Description: The short name of this course. If not in a course, will use the site's shortname.
+            // Parameters: None.
+            if (stripos($text, '{courseshortname}') !== false) {
+                $course = $PAGE->course;
+                if ($course->id == $SITE->id) { // Front page - use site name.
+                    $replace['/\{courseshortname\}/i'] = format_string($SITE->shortname);
+                } else { // In a course - use course full name.
+                    $coursecontext = context_course::instance($course->id);
+                    $replace['/\{courseshortname\}/i'] = format_string($course->shortname, true, ['context' => $coursecontext]);
+                }
+            }
         }
 
-        // Apply all of the filtercodes so far.
-        $newtext = null;
-        if (count($replace) > 0) {
-            $newtext = preg_replace(array_keys($replace), array_values($replace), $text);
-        }
-        if (!is_null($newtext)) {
-            $text = $newtext;
-            $changed = true;
-        }
-        $replace = [];
-
-        // END: Process tags that may end up containing other tags first.
-
-        //
-        // FilterCodes extended (future feature).
-        //
-        if (file_exists(dirname(__FILE__) . '/filter-ext.php')) {
-            include(dirname(__FILE__) . '/filter-ext.php');
+        // Tag: {categoryid}.
+        // Description: Category ID in which the current course is located.
+        // Parameters: None.
+        if (stripos($text, '{categoryid}') !== false) {
+            if (empty($PAGE->course->category)) {
+                // If we are not in a course, check if categoryid is part of URL (ex: course lists).
+                $catid = optional_param('categoryid', 0, PARAM_INT);
+            } else {
+                // Retrieve the category id of the course we are in.
+                $catid = $PAGE->course->category;
+            }
+            $replace['/\{categoryid\}/i'] = $catid;
         }
 
-        // Social field migrated from pre-Moodle 3.11 - for backwards compatibility.
+        if (stripos($text, '{refer') !== false) {
+            // Tag: {referer}.
+            // Description: Alias for {referrer} tag. For backwards compatibility with original incorrect spelling of the tag.
+            // Parameters: None.
+            if (stripos($text, '{referer}') !== false) {
+                $text = str_replace('{referer}', '{referrer}', $text);
+            }
+
+            // Tag: {referrer}.
+            // Description: URL that brought the user to the current page.
+            // Parameters: None.
+            if (stripos($text, '{referrer}') !== false) {
+                if ($CFG->branch >= 28) {
+                    $replace['/\{referrer\}/i'] = get_local_referer(false);
+                } else {
+                    $replace['/\{referrer\}/i'] = !empty($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
+                }
+            }
+        }
+
+        // Tag: %7Bwwwroot%7D.
+        // Description: Alias for {wwwroot}.
+        // Parameters: None.
+        if (stripos($text, '%7Bwwwroot%7D') !== false) {
+            $text = str_replace('%7Bwwwroot%7D', '{wwwroot}', $text);
+        }
+
+        // Tag: {wwwroot}.
+        // Description: URL of the site's webroot.
+        // Parameters: None.
+        if (stripos($text, '{wwwroot}') !== false) {
+            $replace['/\{wwwroot\}/i'] = $CFG->wwwroot;
+        }
+
+        // Tag: {pagepath}.
+        // Description: Path of the current page without wwwroot.
+        // Parameters: None.
+        if (stripos($text, '{pagepath}') !== false) {
+            $url = (is_object($PAGE->url) ? $PAGE->url->out_as_local_url() : '');
+            if (strpos($url, '?') === false && strpos($url, '#') === false) {
+                $url .= '?';
+            }
+            $replace['/\{pagepath\}/i'] = $url;
+        }
+
+        if (stripos($text, '{thisurl') !== false) {
+            $url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") .
+                    "://{$_SERVER['HTTP_HOST']}{$_SERVER['REQUEST_URI']}";
+
+            // Tag: {thisurl}.
+            // Description: Complete URL of the current page.
+            // Parameters: None.
+            if (stripos($text, '{thisurl}') !== false) {
+                $replace['/\{thisurl\}/i'] = $url;
+            }
+            // Tag: {thisurl_enc}.
+            // Description: Complete URL of the current page - URL encoded for use as a parameter of a URL.
+            // Parameters: None.
+            if (stripos($text, '{thisurl_enc}') !== false) {
+                $replace['/\{thisurl_enc\}/i'] = urlencode($url);
+            }
+        }
+
+        // Tag: {protocol}.
+        // Description: Protocol used to access the website (http or https).
+        // Parameters: None.
+        if (stripos($text, '{protocol}') !== false) {
+            $replace['/\{protocol\}/i'] = 'http' . ($this->ishttps() ? 's' : '');
+        }
+
+        // Tag: {ipaddress}.
+        // Description: IP Address of the web client accessing the page.
+        // Parameters: None.
+        if (stripos($text, '{ipaddress}') !== false) {
+            $replace['/\{ipaddress\}/i'] = getremoteaddr();
+        }
+
+        // Tag: {sesskey}.
+        // Description: Moodle Session key. Does not work in forums. May be disabled in FilterCodes settings.
+        // Parameters: None.
+        if (get_config('filter_filtercodes', 'enable_sesskey')) {
+            if ((!isset($PAGE->cm->modname) || $PAGE->cm->modname != 'forum') && $PAGE->pagetype != 'admin-cron') {
+                if (stripos($text, '{sesskey}') !== false) {
+                    // Tag: {sesskey}.
+                    $replace['/\{sesskey\}/i'] = sesskey();
+                }
+                // Tag: %7Bsesskey%7D (for encoded URLs).
+                if (stripos($text, '%7Bsesskey%7D') !== false) {
+                    $replace['/%7Bsesskey%7D/i'] = sesskey();
+                }
+            }
+        }
+
+        // Tag: %7Bsectionid%7D.
+        // Description: Alias of {sectionid}.
+        // Parameters: None.
+        if (stripos($text, '%7Bsectionid%7D') !== false) {
+            $text = str_replace('%7Bsectionid%7D', '{sectionid}', $text);
+        }
+
+        // Tag: {sectionid}.
+        // Description: The course section id in which the current activity is located.
+        // Parameters: None.
+        if (stripos($text, '{sectionid}') !== false) {
+            $replace['/\{sectionid\}/i'] = @$PAGE->cm->sectionnum;
+        }
+
+        // Tag: {getstring:component_name}stringidentifier{/getstring} or {getstring}stringidentifier{/getstring}.
+        // Description: Retrieves Moodle string.
+        // Optional Parameter: Component name. If component_name (plugin) is not specified, will default to "moodle".
+        // Required Content: The string identifier.
+        if (stripos($text, '{/getstring}') !== false) {
+            // Replace {getstring:} tag and parameters with retrieved content.
+            $newtext = preg_replace_callback(
+                '/\{getstring:?(\w*)\}(\w+)\{\/getstring\}/isuU',
+                function ($matches) {
+                    if (get_string_manager()->string_exists($matches[2], $matches[1])) {
+                        return get_string($matches[2], $matches[1]);
+                    } else {
+                        return "{getstring" . (!empty($matches[1]) ? ":$matches[1]" : '') . "}$matches[2]{/getstring}";
+                    }
+                },
+                $text
+            );
+            if ($newtext !== false) {
+                $text = $newtext;
+            }
+        }
+
+        // Tag: {courseunenrolurl}.
+        // Description: URL to unenrol from a course.
+        // Parameters: None.
+        if (stripos($text, '{courseunenrolurl}') !== false) {
+            require_once($CFG->libdir . '/enrollib.php');
+            $course = $PAGE->course;
+            $coursecontext = context_course::instance($course->id);
+            $replace['/\{courseunenrolurl\}/i'] = '';
+            if ($course->id != SITEID && isloggedin() && !isguestuser() && is_enrolled($coursecontext)) {
+                $plugins   = enrol_get_plugins(true);
+                $instances = enrol_get_instances($course->id, true);
+                foreach ($instances as $instance) {
+                    if (!isset($plugins[$instance->enrol])) {
+                        continue;
+                    }
+                    $plugin = $plugins[$instance->enrol];
+                    if ($unenrollink = $plugin->get_unenrolself_link($instance)) {
+                        $replace['/\{courseunenrolurl\}/i'] = $unenrollink;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Tag: {fa fa-icon-name}
+        // Description: FontAwesome 4.7 and 6.0 icons.
+        // Required Parameter: 'fa' can be fa|fas|fa-solid|fab|fa-brands. Additional options available if using FontAwesome Pro.
+        // Required Parameter: icon-name. See full list at https://fontawesome.com/v4/icons/ or https://fontawesome.com/v6/icons/.
+        // Note that FontAwesome 6.x icons are only included with Moodle 4.2+.
+        if (stripos($text, '{fa') !== false) {
+            // Replace {fa...} tag and parameters with FontAwesome HTML.
+            $regex = '/\{fa(';
+            $regex .= 's|-solid|'; // Solid - included with Moodle.
+            $regex .= 'b|-brands|'; // Brands - included with Moodle.
+            // The rest require the FontAwesome Pro.
+            $regex .= 'r|-regular|';
+            $regex .= 'l|-light|';
+            $regex .= 't|-thin|';
+            $regex .= 'd|-duotone|';
+            $regex .= 'ss|-sharp\s+fa-solid|';
+            $regex .= 'sr|-sharp\s+fa-regular|';
+            $regex .= 'sl|-sharp\s+fa-light|';
+            $regex .= 'st|-sharp\s+fa-thin|';
+            $regex .= 'sd|-sharp\s+fa-duotone';
+            $regex .= '){0,1}\s+fa-(.*)\}/isuU';
+            $newtext = preg_replace_callback(
+                $regex,
+                function ($matches) {
+                    $matches[0] = $matches[0] == null ? '' : $matches[0];
+                    return '<span class="' . substr($matches[0], 1, -1) . '" aria-hidden="true"></span>';
+                },
+                $text
+            );
+            if ($newtext !== false) {
+                $text = $newtext;
+            }
+        }
+
+        // Tag: {glyphicon glyphion-name}.
+        // Description: Glyphicon icons.
+        // Required Parameter: name.
+        // Note: Glyphicons Font/CSS must be loaded as part of your theme.
+        if (stripos($text, '{glyphicon ') !== false) {
+            // Replace {glyphicon glyphicon-...} tag and parameters with Glyphicons HTML.
+            $newtext = preg_replace_callback(
+                '/\{glyphicon\sglyphicon-(.*)\}/isuU',
+                function ($matches) {
+                    $matches[0] = $matches[0] == null ? '' : $matches[0];
+                    return '<span class="' . substr($matches[0], 1, -1) . '" aria-hidden="true"></span>';
+                },
+                $text
+            );
+            if ($newtext !== false) {
+                $text = $newtext;
+            }
+        }
+
+        // Tag: {multilang xx}...{/multilang}.
+        // Description: Works just like the Moodle's Multi-Language filter except it's a plain text tag. No more HTML editing!
+        // Required Parameter: xx: The language.
+        // Requires content between tags.
+        // Note: This tag has a dependency on Moodle's Multi-Language Content filter being enabled. That filter
+        // must be below FilterCodes in Site Administration > Plugins > Manage Filters. This does not do any filtering of its own.
+        // For more information on the Multi-Language Content filter see https://docs.moodle.org/en/Multi-language_content_filter.
+        if (stripos($text, '{/multilang}') !== false) {
+            // This is specifically to make it easier to use Moodle's own multi-language filter.
+            $replace['/\{multilang\s+(.*)\}(.*)\{\/multilang\}/isuU'] = '<span lang="$1" class="multilang">$2</span>';
+        }
+
+        /* ---------------- Apply all of the filtercodes so far. ---------------*/
+
+        if ($this->replacetags($text, $replace) == false) {
+            // Go no further if there are no more tags.
+            return $text;
+        }
+
+        // ...===================================================================================================================.
+        // The rest of the tags below. Put tags above if they generate more tags or will be used as parameters for other tags.
+        // ...===================================================================================================================.
+
+        // Simple tags that don't ever have parameters.
+
+        // Substitutions.
+
+        $u = $USER;
+        if (!isloggedin() || isguestuser()) {
+            $u->firstname = get_string('defaultfirstname', 'filter_filtercodes');
+            $u->lastname = get_string('defaultsurname', 'filter_filtercodes');
+        }
+        $u->fullname = trim(get_string('fullnamedisplay', null, $u));
+
+        // Tag: {firstname}.
+        // Description: User's first name as set in their profile.
+        // Parameters: None.
+        if (stripos($text, '{firstname}') !== false) {
+            $replace['/\{firstname\}/i'] = $u->firstname;
+        }
+
+        // Tag: {surname}.
+        // Description: Alias for {lastname}.
+        // Parameters: None.
+        if (stripos($text, '{surname}') !== false) {
+            $text = str_replace('{surname}', '{lastname}', $text);
+        }
+
+        // Tag: {lastname}.
+        // Description: User's last name as set in their profile.
+        // Parameters: None.
+        if (stripos($text, '{lastname}') !== false) {
+            $replace['/\{lastname\}/i'] = $u->lastname;
+        }
+
+        // Tag: {fullname}.
+        // Description: User's full name as set in their profile.
+        // Parameters: None.
+        if (stripos($text, '{fullname}') !== false) {
+            $replace['/\{fullname\}/i'] = $u->fullname;
+        }
+
+        // Tag: {alternatename}.
+        // Description: User's alternate name as set in their profile.
+        // Parameters: None.
+        if (stripos($text, '{alternatename}') !== false) {
+            // If alternate name is empty, use firstname instead.
+            if (isloggedin() && !isguestuser() && (!is_null($USER->alternatename) && !empty(trim($USER->alternatename)))) {
+                $replace['/\{alternatename\}/i'] = $USER->alternatename;
+            } else {
+                $replace['/\{alternatename\}/i'] = $u->firstname;
+            }
+        }
+
+        // Tag: {email}.
+        // Description: User's email address as set in their profile.
+        // Parameters: None.
+        if (stripos($text, '{email}') !== false) {
+            $replace['/\{email\}/i'] = isloggedin() && !isguestuser() ? $USER->email : '';
+        }
+
+        // Tag: {city}.
+        // Description: User's city as set in their profile.
+        // Parameters: None.
+        if (stripos($text, '{city}') !== false) {
+            $replace['/\{city\}/i'] = isloggedin() && !isguestuser() ? $USER->city : '';
+        }
+
+        // Tag: {country}.
+        // Description: User's country as set in their profile.
+        // Parameters: None.
+        if (stripos($text, '{country}') !== false) {
+            if (isloggedin() && !isguestuser() && !empty($USER->country)) {
+                $replace['/\{country\}/i'] = get_string($USER->country, 'countries');
+            } else {
+                $replace['/\{country\}/i'] = '';
+            }
+        }
+        // Tag: {timezone}.
+        // Description: User's time zone as set in their profile.
+        // Parameters: None.
+        if (stripos($text, '{timezone}') !== false) {
+            if (isloggedin() && !isguestuser() && !empty($USER->timezone)) {
+                if ($USER->timezone == '99') { // Default is system timezone.
+                    $replace['/\{timezone\}/i'] = core_date::get_default_php_timezone();
+                } else {
+                    $replace['/\{timezone\}/i'] = core_date::get_localised_timezone($USER->timezone);
+                }
+            }
+        }
+
+        // Tag: {institution}.
+        // Description: User's institution as set in their profile.
+        // Parameters: None.
+        if (stripos($text, '{institution}') !== false) {
+            $replace['/\{institution\}/i'] = isloggedin() && !isguestuser() ? $USER->institution : '';
+        }
+
+        // Tag: {department}.
+        // Description: User's department as set in their profile.
+        // Parameters: None.
+        if (stripos($text, '{department}') !== false) {
+            $replace['/\{department\}/i'] = isloggedin() && !isguestuser() ? $USER->department : '';
+        }
+
+        // Tag: {idnumber}.
+        // Description: idnumber as specified in the user's profile.
+        // Parameters: None.
+        if (stripos($text, '{idnumber}') !== false) {
+            $replace['/\{idnumber\}/i'] = isloggedin() && !isguestuser() ? $USER->idnumber : '';
+        }
+
+        // Tag: {webpage}
+        // Description: Social field in user's profile. This migrates from pre-Moodle 3.11 - for backwards compatibility.
+        // Parameters: None.
         if (stripos($text, '{webpage}') !== false) {
             if ($CFG->branch >= 311) {
                 $text = str_replace('{webpage}', '{profile_field_webpage}', $text);
@@ -1169,15 +1801,103 @@ class filter_filtercodes extends moodle_text_filter {
             }
         }
 
-        if (stripos($text, '{profile') !== false) {
+        // Tag: {diskfreespace}.
+        // Description: Free space of Moodle application volume.
+        // Parameters: None.
+        if (stripos($text, '{diskfreespace}') !== false) {
+            $bytes = @disk_free_space('.');
+            $replace['/\{diskfreespace\}/i'] = $this->humanbytes($bytes);
+        }
 
-            // Tag: {profile_field_...}.
-            // Custom Profile Fields.
+        // Tag: {diskfreespacedata}.
+        // Description: Free space of Moodle data volume.
+        // Parameters: None.
+        if (stripos($text, '{diskfreespacedata}') !== false) {
+            $bytes = @disk_free_space($CFG->dataroot);
+            $replace['/\{diskfreespacedata\}/i'] = $this->humanbytes($bytes);
+        }
+
+        // Tags starting with: {support...}.
+        if (stripos($text, '{support') !== false) {
+            // Tag: {supportname}.
+            // Description: Support name for the site from Moodle settings.
+            // None.
+            if (stripos($text, '{supportname}') !== false) {
+                if (empty($CFG->supportname)) {
+                    $replace['/\{supportname\}/i'] = get_string('notavailable', 'filter_filtercodes');
+                } else {
+                    $replace['/\{supportname\}/i'] = $CFG->supportname;
+                }
+            }
+
+            // Tag: {supportemail}.
+            // Description: Support email address for the site from Moodle settings.
+            // None.
+            if (stripos($text, '{supportemail}') !== false) {
+                if (empty($CFG->supportname)) {
+                    $replace['/\{supportemail\}/i'] = get_string('notavailable', 'filter_filtercodes');
+                } else {
+                    $replace['/\{supportemail\}/i'] = $CFG->supportemail;
+                }
+            }
+
+            // Tag: {supportpage}.
+            // Description: URL of Support for the site from Moodle settings.
+            // None.
+            if (stripos($text, '{supportpage}') !== false) {
+                if (empty($CFG->supportname)) {
+                    $replace['/\{supportpage\}/i'] = '';
+                } else {
+                    $replace['/\{supportpage\}/i'] = $CFG->supportpage;
+                }
+            }
+
+            // Tag: {supportservicespage}.
+            // Description: URL of support services page from Moodle settings.
+            // None.
+            if ($CFG->branch >= 402 && stripos($text, '{supportservicespage}') !== false) {
+                $replace['/\{supportservicespage\}/i'] = $CFG->servicespage;
+            }
+        }
+
+        if (stripos($text, '{site') !== false) {
+            // Tag: {sitename}.
+            // Description: The full name of the site name.
+            // Parameters: None.
+            if (stripos($text, '{sitename') !== false) {
+                $sitecontext = context_system::instance();
+                $replace['/\{sitename\}/i'] = format_string($SITE->fullname, true, ['context' => $sitecontext]);
+            }
+
+            // Tag: {sitesummary}.
+            // Description: Site summary as defined in the Front Page/Site Home Settings.
+            // Parameters: None.
+            if (stripos($text, '{sitesummary}') !== false) {
+                $replace['/\{sitesummary\}/i'] = $SITE->fullname;
+            }
+
+            // Tag: {siteyear}.
+            // Description: Current year, 4 digits.
+            // Parameters: None.
+            if (stripos($text, '{siteyear}') !== false) {
+                $replace['/\{siteyear\}/i'] = date('Y');
+            }
+        }
+
+        /* ---------------- Apply all of the filtercodes so far. ---------------*/
+
+        if ($this->replacetags($text, $replace) == false) {
+            // Go no further if there are no more tags.
+            return $text;
+        }
+
+        if (stripos($text, '{profile') !== false) {
+            // Tag: {profile_field_shortname}.
+            // Description: Contents of the custom user profile field. Will apply formating to datetime and checkbox type fields.
+            // Required Parameters: shortname of a custom profile field.
             if (stripos($text, '{profile_field') !== false) {
                 $isuser = (isloggedin() && !isguestuser());
                 // Cached the defined custom profile fields and data.
-                static $profilefields;
-                static $profiledata;
                 if (!isset($profilefields)) {
                     $profilefields = $DB->get_records('user_info_field', null, '', 'id, datatype, shortname, visible, param3');
                     if ($isuser && !empty($profilefields)) {
@@ -1187,9 +1907,11 @@ class filter_filtercodes extends moodle_text_filter {
                 $showhidden = get_config('filter_filtercodes', 'showhiddenprofilefields');
                 foreach ($profilefields as $field) {
                     // If the tag exists and is not set to "Not visible" in the custom profile field's settings.
-                    if ($isuser
-                            && stripos($text, '{profile_field_' . $field->shortname . '}') !== false
-                            && ($field->visible != '0' || !empty($showhidden))) {
+                    if (
+                        $isuser
+                        && stripos($text, '{profile_field_' . $field->shortname . '}') !== false
+                        && ($field->visible != '0' || !empty($showhidden))
+                    ) {
                         $data = isset($profiledata[$field->id]) ? trim($profiledata[$field->id]) : '' . PHP_EOL;
                         switch ($field->datatype) { // Format data for some field types.
                             case 'datetime':
@@ -1210,13 +1932,18 @@ class filter_filtercodes extends moodle_text_filter {
             }
 
             // Tag: {profilefullname}.
+            // Description: Full name of current user.
+            // Parameters: None.
             if (stripos($text, '{profilefullname}') !== false) {
                 $fullname = '';
                 if (isloggedin() && !isguestuser()) {
                     $fullname = get_string('fullnamedisplay', null, $USER);
                     if ($PAGE->pagelayout == 'mypublic' && $PAGE->pagetype == 'user-profile') {
-                        $userid = optional_param('userid', optional_param('user',
-                                optional_param('id', $USER->id, PARAM_INT), PARAM_INT), PARAM_INT);
+                        $userid = optional_param('userid', optional_param(
+                            'user',
+                            optional_param('id', $USER->id, PARAM_INT),
+                            PARAM_INT
+                        ), PARAM_INT);
                         if ($user = $DB->get_record('user', ['id' => $userid, 'deleted' => 0])) {
                             $fullname = get_string('fullnamedisplay', null, $user);
                         }
@@ -1227,107 +1954,9 @@ class filter_filtercodes extends moodle_text_filter {
             }
         }
 
-        // Substitutions.
-
-        $u = $USER;
-        if (!isloggedin() || isguestuser()) {
-            $u->firstname = get_string('defaultfirstname', 'filter_filtercodes');
-            $u->lastname = get_string('defaultsurname', 'filter_filtercodes');
-        }
-        $u->fullname = trim(get_string('fullnamedisplay', null, $u));
-
-        // Tag: {firstname}.
-        if (stripos($text, '{firstname}') !== false) {
-            $replace['/\{firstname\}/i'] = $u->firstname;
-        }
-
-        // Tag: {surname}.
-        if (stripos($text, '{surname}') !== false) {
-            $replace['/\{surname\}/i'] = $u->lastname;
-        }
-
-        // Tag: {lastname} (same as surname... just easier to remember).
-        if (stripos($text, '{lastname}') !== false) {
-            $replace['/\{lastname\}/i'] = $u->lastname;
-        }
-
-        // Tag: {fullname}.
-        if (stripos($text, '{fullname}') !== false) {
-            $replace['/\{fullname\}/i'] = $u->fullname;
-        }
-
-        // Tag: {alternatename}.
-        if (stripos($text, '{alternatename}') !== false) {
-            // If alternate name is empty, use firstname instead.
-            if (isloggedin() && !isguestuser() && !empty(trim($USER->alternatename))) {
-                $replace['/\{alternatename\}/i'] = $USER->alternatename;
-            } else {
-                $replace['/\{alternatename\}/i'] = $u->firstname;
-            }
-        }
-
-        // Tag: {email}.
-        if (stripos($text, '{email}') !== false) {
-            $replace['/\{email\}/i'] = isloggedin() && !isguestuser() ? $USER->email : '';
-        }
-
-        // Tag: {city}.
-        if (stripos($text, '{city}') !== false) {
-            $replace['/\{city\}/i'] = isloggedin() && !isguestuser() ? $USER->city : '';
-        }
-
-        // Tag: {country}.
-        if (stripos($text, '{country}') !== false) {
-            if (isloggedin() && !isguestuser() && !empty($USER->country)) {
-                $replace['/\{country\}/i'] = get_string($USER->country, 'countries');
-            } else {
-                $replace['/\{country\}/i'] = '';
-            }
-        }
-        // Tag: {timezone}.
-        if (stripos($text, '{timezone}') !== false) {
-            if (isloggedin() && !isguestuser() && !empty($USER->timezone)) {
-                if ($USER->timezone == '99') { // Default is system timezone.
-                    $replace['/\{timezone\}/i'] = core_date::get_default_php_timezone();
-                } else {
-                    $replace['/\{timezone\}/i'] = core_date::get_localised_timezone($USER->timezone);
-                }
-            }
-        }
-
-        // Tag: {preferredlanguage}.
-        if (stripos($text, '{preferredlanguage}') !== false) {
-            if (isloggedin() && !isguestuser()) {
-                if ('en' == $USER->lang) {
-                    $langconfig = $CFG->dirroot . '/lang/en/langconfig.php';
-                } else {
-                    $langconfig = $CFG->dataroot . '/lang/' . $USER->lang . '/langconfig.php';
-                }
-                // Ignore parents here for now.
-                $string = [];
-                include($langconfig);
-                if (!empty($string['thislanguage'])) {
-                    $replace['/\{preferredlanguage\}/i'] = '<span lang="' . $string['iso6391'] . '">' . $string['thislanguage']
-                            . '</span>';
-                } else { // This should never happen since the known user already exists.
-                    $replace['/\{preferredlanguage\}/i'] = get_string('unknown', 'notes');
-                }
-            } else {
-                $replace['/\{preferredlanguage\}/i'] = '';
-            }
-        }
-
-        // Tag: {institution}.
-        if (stripos($text, '{institution}') !== false) {
-            $replace['/\{institution\}/i'] = isloggedin() && !isguestuser() ? $USER->institution : '';
-        }
-
-        // Tag: {department}.
-        if (stripos($text, '{department}') !== false) {
-            $replace['/\{department\}/i'] = isloggedin() && !isguestuser() ? $USER->department : '';
-        }
-
         // Tag: {firstaccessdate} or {firstaccessdate dateTimeFormat}.
+        // Description: Date that the user first accessed the site.
+        // Optional parameters: dateTimeFormat - either one of Moodle's built-in data/time formats or php's strftime.
         if (stripos($text, '{firstaccessdate') !== false) {
             if (isloggedin() && !isguestuser() && !empty($USER->firstaccess)) {
                 // Replace {firstaccessdate} tag with formatted date.
@@ -1336,7 +1965,8 @@ class filter_filtercodes extends moodle_text_filter {
                 }
                 // Replace {firstaccessdate dateTimeFormat} tag and parameters with formatted date.
                 if (stripos($text, '{firstaccessdate ') !== false) {
-                    $newtext = preg_replace_callback('/\{firstaccessdate\s+(.+)\}/isuU',
+                    $newtext = preg_replace_callback(
+                        '/\{firstaccessdate\s+(.+)\}/isuU',
                         function ($matches) use ($USER) {
                             // Check if this is a built-in Moodle date/time format.
                             if (!empty($matches[1]) && get_string_manager()->string_exists($matches[1], 'langconfig')) {
@@ -1349,7 +1979,6 @@ class filter_filtercodes extends moodle_text_filter {
                     );
                     if ($newtext !== false) {
                         $text = $newtext;
-                        $changed = true;
                     }
                 }
             } else {
@@ -1358,6 +1987,8 @@ class filter_filtercodes extends moodle_text_filter {
         }
 
         // Tag: {lastlogin} or {lastlogin dateTimeFormat}.
+        // Description: Date that the user last logged in to the site.
+        // Optional parameters: dateTimeFormat - either one of Moodle's built-in data/time formats or php's strftime.
         if (stripos($text, '{lastlogin') !== false) {
             if (isloggedin() && !isguestuser() && !empty($USER->lastlogin)) {
                 // Replace {lastlogin} tag with formatted date.
@@ -1366,7 +1997,8 @@ class filter_filtercodes extends moodle_text_filter {
                 }
                 // Replace {lastlogin dateTimeFormat} tag and parameters with formatted date.
                 if (stripos($text, '{lastlogin ') !== false) {
-                    $newtext = preg_replace_callback('/\{lastlogin\s+(.+)\}/isuU',
+                    $newtext = preg_replace_callback(
+                        '/\{lastlogin\s+(.+)\}/isuU',
                         function ($matches) use ($USER) {
                             // Check if this is a built-in Moodle date/time format.
                             if (!empty($matches[1]) && get_string_manager()->string_exists($matches[1], 'langconfig')) {
@@ -1379,7 +2011,6 @@ class filter_filtercodes extends moodle_text_filter {
                     );
                     if ($newtext !== false) {
                         $text = $newtext;
-                        $changed = true;
                     }
                 }
             } else {
@@ -1387,126 +2018,87 @@ class filter_filtercodes extends moodle_text_filter {
             }
         }
 
-        // Tags starting with: {support...}.
-        if (stripos($text, '{support') !== false) {
-            // Tag: {supportname}.
-            if (stripos($text, '{supportname}') !== false) {
-                $replace['/\{supportname\}/i'] = $CFG->supportname;
+        // Tag: {scrape url="" <optional parameters>}.
+        // Description: Scrapes content from an external HTML page. Cannot scrape secure pages from sites that requires login.
+        // Optional parameters: You may use any combination of the following: tag="..." class="..." id="..." code="...".
+        if (get_config('filter_filtercodes', 'enable_scrape') && stripos($text, '{scrape ') !== false) {
+            // Replace {scrape} tag and its attributes with retrieved content.
+            $newtext = preg_replace_callback(
+                '/\{scrape\s+(.*)\}/isuU',
+                function ($matches) {
+                    // Parse the scrape tag's atributes.
+                    $matches[0] = $matches[0] == null ? '' : strip_tags($matches[0]);
+                    $attribs = substr($matches[0], 1, -1);
+                    $scrape = $this->attribstoarray($attribs);
+                    $url = isset($scrape['url']) ? $scrape['url'] : '';
+                    $tag = isset($scrape['tag']) ? $scrape['tag'] : '';
+                    $class = isset($scrape['class']) ? $scrape['class'] : '';
+                    $id = isset($scrape['id']) ? $scrape['id'] : '';
+                    $code = isset($scrape['code']) ? $scrape['code'] : '';
+                    // If nothing else, we must have a URL parameter.
+                    if (empty($url)) {
+                        return "SCRAPE error: Missing or invalid required URL parameter.";
+                    }
+                    // Replace {scrape} tag and its attributes with retrieved content.
+                    return $this->scrapehtml($url, $tag, $class, $id, $code);
+                },
+                $text
+            );
+            if ($newtext !== false) {
+                $text = $newtext;
             }
-
-            // Tag: {supportemail}.
-            if (stripos($text, '{supportemail}') !== false) {
-                $replace['/\{supportemail\}/i'] = $CFG->supportemail;
-            }
-
-            // Tag: {supportpage}.
-            if (stripos($text, '{supportpage}') !== false) {
-                $replace['/\{supportpage\}/i'] = $CFG->supportpage;
-            }
-            // Tag: {supportservicespage}.
-            if ($CFG->branch >= 402 && stripos($text, '{supportservicespage}') !== false) {
-                $replace['/\{supportservicespage\}/i'] = $CFG->servicespage;
-            }
-        }
-
-        if (get_config('filter_filtercodes', 'enable_scrape')) { // Must be enabled in FilterCodes settings.
-            // Tag: {scrape url="" tag="" class="" id="" code=""}.
-            if (stripos($text, '{scrape ') !== false) {
-                // Replace {scrape} tag and its attributes with retrieved content.
-                $newtext = preg_replace_callback('/\{scrape\s+(.*)\}/isuU',
-                    function ($matches) {
-                        // Parse the scrape tag's atributes.
-                        $matches[0] = $matches[0] == null ? '' : $matches[0];
-                        $attribs = substr($matches[0], 1, -1);
-                        $scrape = $this->attribstoarray($attribs);
-                        $url = isset($scrape['url']) ? $scrape['url'] : '';
-                        $tag = isset($scrape['tag']) ? $scrape['tag'] : '';
-                        $class = isset($scrape['class']) ? $scrape['class'] : '';
-                        $id = isset($scrape['id']) ? $scrape['id'] : '';
-                        $code = isset($scrape['code']) ? $scrape['code'] : '';
-                        // If nothing else, we must have a URL parameter.
-                        if (empty($url)) {
-                            return "SCRAPE error: Missing or invalid required URL parameter.";
-                        }
-                        // Replace {scrape} tag and its attributes with retrieved content.
-                        return $this->scrapehtml($url, $tag, $class, $id, $code);
-                    }, $text);
-                if ($newtext !== false) {
-                    $text = $newtext;
-                    $changed = true;
-                }
-            }
-        }
-
-        // Tag: {diskfreespace} - free space of Moodle application volume.
-        if (stripos($text, '{diskfreespace}') !== false) {
-            $bytes = @disk_free_space('.');
-            $replace['/\{diskfreespace\}/i'] = $this->humanbytes($bytes);
-        }
-
-        // Tag: {diskfreespacedata} - free space of Moodledata volume.
-        if (stripos($text, '{diskfreespacedata}') !== false) {
-            $bytes = @disk_free_space($CFG->dataroot);
-            $replace['/\{diskfreespacedata\}/i'] = $this->humanbytes($bytes);
         }
 
         // Any {user*} tags.
         if (stripos($text, '{user') !== false || stripos($text, '%7Buser') !== false) {
-
             // Tag: {username}.
+            // Description: User's username as defined in their profile. When not logged in, uses predefined name in language file.
+            // Parameters: None.
             if (stripos($text, '{username}') !== false) {
                 $replace['/\{username\}/i'] = isloggedin()
                         && !isguestuser() ? $USER->username : get_string('defaultusername', 'filter_filtercodes');
             }
 
-            // Tag: {userid}.
-            if (stripos($text, '{userid}') !== false) {
-                $replace['/\{userid\}/i'] = $USER->id;
-            }
-            // Alternative Tag: %7Buserid%7D (for encoded URLs).
-            if (stripos($text, '%7Buserid%7D') !== false) {
-                $replace['/%7Buserid%7D/i'] = $USER->id;
-            }
-
             // These tags: {userpictureurl} and {userpictureimg}.
             if (stripos($text, '{userpicture') !== false) {
-                // Tag: {userpictureurl size}. User photo URL.
-                // Sizes: 2 or sm (small), 1 or md (medium), 3 or lg (large).
+                // Tag: {userpictureurl size}.
+                // Description: URL of user's picture as set in their profile.
+                // Parameters: Sizes: sm|md|lg or an integer 2|1|3 or an integer size in pixels > 3.
                 if (stripos($text, '{userpictureurl ') !== false) {
-                    $url = $this->getprofilepictureurl($USER);
-                    // Substitute the $1 in URL with value of (\w+), making sure to substitute text versions into numbers.
-                    $newtext = preg_replace_callback('/\{userpictureurl\s+(\w+)\}/isuU',
-                        function ($matches) {
-                            $sublist = ['sm' => '2', '2' => '2', 'md' => '1', '1' => '1', 'lg' => '3', '3' => '3'];
-                            return '{userpictureurl ' . $sublist[$matches[1]] . '}';
-                        }, $text);
+                    $newtext = preg_replace_callback(
+                        '/\{userpictureurl\s+(\w+)\}/isuU',
+                        function ($matches) use ($USER) {
+                            return $this->getprofilepictureurl($USER, $matches[1]);
+                        },
+                        $text
+                    );
                     if ($newtext !== false) {
                         $text = $newtext;
-                        $changed = true;
                     }
-                    $replace['/\{userpictureurl\s+(\w+)\}/isuU'] = $url;
                 }
 
-                // Tag: {userpictureimg size}. User photo URL wrapped in HTML image tag.
-                // Sizes: 2 or sm (small), 1 or md (medium), 3 or lg (large).
+                // Tag: {userpictureimg size}.
+                // Description: URL of user's picture as set in their profile, wrapped in an HTML img tag.
+                // Parameters: Sizes: sm|md|lg or an integer 2|1|3 or an integer size in pixels > 3.
                 if (stripos($text, '{userpictureimg ') !== false) {
-                    $url = $this->getprofilepictureurl($USER);
-                    $tag = '<img src="' . $url . '" alt="' . $u->fullname . '" class="userpicture">';
-                    // Will substitute the $1 in URL with value of (\w+).
-                    $newtext = preg_replace_callback('/\{userpictureimg\s+(\w+)\}/isuU',
-                        function ($matches) {
-                            $sublist = ['sm' => '2', '2' => '2', 'md' => '1', '1' => '1', 'lg' => '3', '3' => '3'];
-                            return '{userpictureimg ' . $sublist[$matches[1]] . '}';
-                        }, $text);
+                    $newtext = preg_replace_callback(
+                        '/\{userpictureimg\s+(\w+)\}/isuU',
+                        function ($matches) use ($USER) {
+                            $url = $this->getprofilepictureurl($USER, $matches[1]);
+                            $tag = '<img src="' . $url . '" alt="' . $USER->fullname . '" class="userpicture">';
+                            return $tag;
+                        },
+                        $text
+                    );
                     if ($newtext !== false) {
                         $text = $newtext;
-                        $changed = true;
                     }
-                    $replace['/\{userpictureimg\s+(\w+)\}/isuU'] = $tag;
                 }
             }
 
             // Tag: {userdescription}.
+            // Description: Description as set in user's profile.
+            // Parameters: None.
             if (stripos($text, '{userdescription}') !== false) {
                 if (isloggedin() && !isguestuser()) {
                     $user = $DB->get_record('user', ['id' => $USER->id], 'description', MUST_EXIST);
@@ -1518,14 +2110,27 @@ class filter_filtercodes extends moodle_text_filter {
             }
 
             // Tag: {usercount}.
+            // Description: A count of the total number of users on the site. Includes suspended and unconfirmed users.
+            // Parameters: None.
             if (stripos($text, '{usercount}') !== false) {
                 // Count total number of current users on the site.
                 // Exclude deleted users, admin and guest.
-                $cnt = $DB->count_records('user', ['deleted' => 0]) - 2;
-                $replace['/\{usercount\}/i'] = $cnt;
+                $userc ="{usercount}";
+                if (!restricttag($userc)){
+                    $cnt = $DB->count_records('user', ['deleted' => 0]) - 2;
+                    $replace['/\{usercount\}/i'] = $cnt;
+                    
+                }else {
+                    $replace['/\{usercount\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                    <strong>{usercount}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
+               
+                }
+                
             }
 
             // Tag: {usersactive}.
+            // Description: A count of the total number of active users on the site.
+            // Parameters: None.
             if (stripos($text, '{usersactive}') !== false) {
                 // Count total number of current users on the site.
                 // Exclude deleted, suspended and unconfirmed users, admin and guest.
@@ -1534,6 +2139,8 @@ class filter_filtercodes extends moodle_text_filter {
             }
 
             // Tag: {usersonline}.
+            // Description: A count of the total number of users currently online on the site within the last 5 minutes.
+            // Parameters: None.
             if (stripos($text, '{usersonline}') !== false) {
                 $timetosee = 300; // Within last number of seconds (300 = 5 minutes).
                 if (isset($CFG->block_online_users_timetosee)) {
@@ -1549,8 +2156,14 @@ class filter_filtercodes extends moodle_text_filter {
                 // Get the user current group.
                 $thisgroup = $isseparategroups ? groups_get_course_group($PAGE->course) : null;
 
-                $onlineusers = new fetcher($thisgroup, $now, $timetosee, $PAGE->context,
-                        $PAGE->context->contextlevel, $PAGE->course->id);
+                $onlineusers = new fetcher(
+                    $thisgroup,
+                    $now,
+                    $timetosee,
+                    $PAGE->context,
+                    $PAGE->context->contextlevel,
+                    $PAGE->course->id
+                );
 
                 // Count online users.
                 $usersonline = $onlineusers->count_users();
@@ -1558,70 +2171,35 @@ class filter_filtercodes extends moodle_text_filter {
             }
 
             // Tag: {userscountrycount}.
+            // Description: A count of the total number countries that users are in as set in their user profile.
+            // Parameters: None.
             if (stripos($text, '{userscountrycount}') !== false) {
-                $count = $DB->count_records_sql('SELECT COUNT(DISTINCT country) FROM {user} WHERE id > 2');
-                $replace['/\{userscountrycount\}/i'] = $count;
+                $usercountry ="{userscountrycount}";
+                if (!restricttag($usercountry)){
+                    $count = $DB->count_records_sql('SELECT COUNT(DISTINCT country) FROM {user} WHERE id > 2');
+                    $replace['/\{userscountrycount\}/i'] = $count;
+                    
+                }else {
+                    $replace['/\{userscountrycount\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                    <strong>{userscountrycount}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
+               
+                }
+               
             }
         }
 
         // Check if any {course*} or %7Bcourse*%7D tags. Note: There is another course tags section further up.
         $coursetagsexist = (stripos($text, '{course') !== false || stripos($text, '%7Bcourse') !== false);
         if ($coursetagsexist) {
-
-            // Custom Course Fields - First implemented in Moodle 3.7.
-            if ($CFG->branch >= 37) {
-                // Tag: {course_field_shortname}.
-                if (stripos($text, '{course_field_') !== false) {
-                    // Cached the custom course field data.
-                    static $coursefields;
-                    if (!isset($coursefields)) {
-                        $handler = core_course\customfield\course_handler::create();
-                        $coursefields = $handler->export_instance_data_object($PAGE->course->id, true);
-                        $fieldsvisible = $handler->export_instance_data_object($PAGE->course->id);
-                        // Blank out the fields that should not be displayed.
-                        foreach ($coursefields as $field => $value) {
-                            if (empty($fieldsvisible->$field)) {
-                                $coursefields->$field = '';
-                            }
-                        }
-                    }
-                    $coursecontext = context_course::instance($PAGE->course->id);
-                    foreach ($coursefields as $field => $value) {
-                        $shortname = strtolower($field);
-                        // If the tag exists and it is not hidden in the custom course field's settings.
-                        if (stripos($text, '{course_field_' . $shortname . '}') !== false) {
-                            $replace['/\{course_field_' . $shortname . '\}/i'] = format_text($value, FORMAT_HTML,
-                                    ['context' => $coursecontext]);
-                        }
-                    }
-                }
-
-                // Tag: {course_fields}.
-                if (stripos($text, '{course_fields}') !== false) {
-                    // Display all custom course fields.
-                    $customfields = '';
-                    if ($PAGE->course instanceof stdClass) {
-                        $thiscourse = new \core_course_list_element($PAGE->course);
-                    }
-                    if ($thiscourse->has_custom_fields()) {
-                        $handler = \core_course\customfield\course_handler::create();
-                        $customfields = $handler->display_custom_fields_data($thiscourse->get_custom_fields());
-                    }
-                    $coursecontext = context_course::instance($PAGE->course->id);
-                    $replace['/\{course_fields\}/i'] = format_text($customfields, FORMAT_HTML, ['context' => $coursecontext]);
-                }
-
-            }
-
             // Tag: {coursecontacts}.
-            if (stripos($text, '{coursecontacts') !== false) {
+            // Description: Get list of course contacts based on settings in Site Administration > Appearances > Courses.
+            // Parameters: None.
+            if (stripos($text, '{coursecontacts}') !== false) {
                 $contacts = '';
                 // If course (not site pages) with contacts.
                 if ($PAGE->course->id) {
-
                     $course = new core_course_list_element($PAGE->course);
                     if ($course->has_course_contacts()) {
-
                         // Get tag settings.
                         $cshowpic = get_config('filter_filtercodes', 'coursecontactshowpic');
                         $cshowdesc = get_config('filter_filtercodes', 'coursecontactshowdesc');
@@ -1629,15 +2207,17 @@ class filter_filtercodes extends moodle_text_filter {
 
                         // Prepare some strings.
                         $linksr = ['' => '',
-                                'email' => get_string('issueremail', 'badges'),
-                                'message' => get_string('message', 'message'),
-                                'profile' => get_string('profile'),
-                                'phone' => get_string('phone')];
+                            'email' => get_string('issueremail', 'badges'),
+                            'message' => get_string('message', 'message'),
+                            'profile' => get_string('profile'),
+                            'phone' => get_string('phone'),
+                        ];
                         $iconclass = ['' => '',
-                                'email' => 'fa fa-envelope-o',
-                                'message' => 'fa fa-comment-o',
-                                'profile' => 'fa fa-user-o',
-                                'phone' => 'fa fa-mobile'];
+                            'email' => 'fa fa-envelope-o',
+                            'message' => 'fa fa-comment-o',
+                            'profile' => 'fa fa-user-o',
+                            'phone' => 'fa fa-mobile',
+                        ];
 
                         $cnt = 0;
                         foreach ($course->get_course_contacts() as $coursecontact) {
@@ -1646,17 +2226,21 @@ class filter_filtercodes extends moodle_text_filter {
                             $contacts .= '<li>';
 
                             // Get list of course contacts based on settings in Site Administration > Appearances > Courses.
-                            // Get liset of user's roles in the course.
+                            // Get list of user's roles in the course.
                             $rolenames = array_map(function ($role) {
                                 return $role->displayname;
                             }, $coursecontact['roles']);
 
                             // Retrieve contact's profile information.
-                            $user = $DB->get_record('user', ['id' => $coursecontact['user']->id],
-                                    $fields = '*', $strictness = IGNORE_MULTIPLE);
-                            $imgurl = str_replace('$1', '3', $this->getprofilepictureurl($user));
+                            $user = $DB->get_record(
+                                'user',
+                                ['id' => $coursecontact['user']->id],
+                                $fields = '*',
+                                $strictness = IGNORE_MULTIPLE
+                            );
                             $fullname = get_string('fullnamedisplay', null, $user);
                             if ($cshowpic) {
+                                $imgurl = $this->getprofilepictureurl($user, 3);
                                 $contacts .= '<img src="' . $imgurl . '" alt="' . $fullname
                                     . '" class="img-fluid img-thumbnail' . (!empty($cnt) ? ' mt-4' : '') . '">';
                                 $cnt++;
@@ -1673,15 +2257,17 @@ class filter_filtercodes extends moodle_text_filter {
                                     $contacts .= $contactsclose;
                                     break;
                                 case 'message':
-                                    $contacts .= $icon . '<a href="' . new moodle_url('/message/index.php',
-                                            ['id' => $coursecontact['user']->id]
-                                            ) . '">';
+                                    $contacts .= $icon . '<a href="' . new moodle_url(
+                                        '/message/index.php',
+                                        ['id' => $coursecontact['user']->id]
+                                    ) . '">';
                                     $contacts .= $contactsclose;
                                     break;
                                 case 'profile':
-                                    $contacts .= $icon . '<a href="' . new moodle_url('/user/profile.php',
-                                            ['id' => $coursecontact['user']->id, 'course' => $PAGE->course->id]
-                                            ) . '">';
+                                    $contacts .= $icon . '<a href="' . new moodle_url(
+                                        '/user/profile.php',
+                                        ['id' => $coursecontact['user']->id, 'course' => $PAGE->course->id]
+                                    ) . '">';
                                     $contacts .= $contactsclose;
                                     break;
                                 case 'phone1' && !empty($user->phone1):
@@ -1691,30 +2277,29 @@ class filter_filtercodes extends moodle_text_filter {
                                 default: // Default is no-link.
                                     $contacts .= $fullname;
                                     break;
-
                             }
                             if ($cshowdesc && !empty($user->description)) {
                                 $contacts .= '<div' . (empty($cshowpic) ? ' class="mb-4"' : '') . '>' .
                                         $user->description . '</div>';
                             }
                             $contacts .= '</li>';
-
                         }
-
                     }
-
                 }
+
                 if (empty($contacts)) {
                     $replace['/\{coursecontacts\}/i'] = get_string('nocontacts', 'message');
                 } else {
                     $replace['/\{coursecontacts\}/i'] = '<ul class="fc-coursecontacts list-unstyled ml-0 pl-0">' .
                             $contacts . '</ul>';
                 }
-                unset($contacts, $contactsclose, $fullname, $url, $user, $rolenames, $icon, $iconclass,
-                        $linksr, $clinktype, $cshowpic);
+                unset($contacts, $contactsclose, $fullname, $url, $user, $rolenames, $icon, $iconclass);
+                unset($linksr, $clinktype, $cshowpic);
             }
 
             // Tag: {courseparticipantcount}.
+            // Description: Get a the number of participants in the course. This includes anyone registered in the course.
+            // Parameters: None.
             if (stripos($text, '{courseparticipantcount}') !== false) {
                 require_once($CFG->dirroot . '/user/lib.php');
                 if ($CFG->branch >= 39) {
@@ -1729,11 +2314,15 @@ class filter_filtercodes extends moodle_text_filter {
                 $replace['/\{courseparticipantcount\}/i'] = $cnt;
             }
 
-            // Tag: {coursecount students}.
+            // Tag: {coursecount students|students:active}.
+            // Requires one of two parameters:
+            // Optional Parameters: "students" - Filter limiting to just users with the role of student; or
+            // Optional Parameters: "students:active" - Filter limiting to student who have not been suspended.
+            // Description: Get just the number of "students" in the course.
             if (stripos($text, '{coursecount students}') !== false) {
                 if ($CFG->branch >= 32) {
                     $coursecontext = context_course::instance($PAGE->course->id);
-                    $role = $DB->get_record('role', array('shortname' => 'student'));
+                    $role = $DB->get_record('role', ['shortname' => 'student']);
                     $students = get_role_users($role->id, $coursecontext);
                     $cnt = count($students);
                     unset($students);
@@ -1742,8 +2331,6 @@ class filter_filtercodes extends moodle_text_filter {
                 }
                 $replace['/\{coursecount students\}/i'] = $cnt;
             }
-
-            // Tag: {coursecount students:active}.
             if (stripos($text, '{coursecount students:active}') !== false) {
                 $sql = "SELECT COUNT(DISTINCT ue.userid)
                         FROM {user_enrolments} ue
@@ -1753,28 +2340,48 @@ class filter_filtercodes extends moodle_text_filter {
                         JOIN {role_assignments} ra ON ra.contextid = ctx.id AND ra.userid = ue.userid
                         JOIN {role} r ON r.id = ra.roleid AND r.shortname = 'student'
                         WHERE ue.status = 0 AND e.courseid = :courseid";
-                $cnt = $DB->count_records_sql($sql, array('courseid' => $PAGE->course->id));
+                $cnt = $DB->count_records_sql($sql, ['courseid' => $PAGE->course->id]);
                 $replace['/\{coursecount students:active\}/i'] = $cnt;
             }
 
+            // Tag: {coursecount}.
+            // Description: The total number of courses.
+            // Parameters: None.
+            // Note that there are parametered vesions above giving it a completely different purpose.
+            if (stripos($text, '{coursecount}') !== false) {
+                // Count courses excluding front page.
+                $cnt = $DB->count_records('course', []) - 1;
+                $replace['/\{coursecount\}/i'] = $cnt;
+            }
+
             // Tag: {courseidnumber}.
+            // Description: The course idnumber as set in the course settings.
+            // Parameters: None.
             if (stripos($text, '{courseidnumber}') !== false) {
                 $replace['/\{courseidnumber\}/i'] = $PAGE->course->idnumber;
             }
 
-            // Tag: {coursename}. The full name of a course or the site name.
+            // Tag: {coursename}.
+            // Description: The full name of a course, or the site name if not in a course.
+            // Parameters: None.
             if (stripos($text, '{coursename') !== false) {
                 if (stripos($text, '{coursename}') !== false) {
                     // No course ID was specified.
                     $course = $PAGE->course;
                     if ($course->id == $SITE->id) { // If not in a course, use the site name.
                         $coursecontext = context_system::instance();
-                        $replace['/\{coursename\}/i'] = format_string($SITE->fullname, true,
-                                ['context' => $coursecontext]);
+                        $replace['/\{coursename\}/i'] = format_string(
+                            $SITE->fullname,
+                            true,
+                            ['context' => $coursecontext]
+                        );
                     } else { // If in a course - use course full name.
                         $coursecontext = context_course::instance($course->id);
-                        $replace['/\{coursename\}/i'] = format_string($course->fullname, true,
-                                ['context' => $coursecontext]);
+                        $replace['/\{coursename\}/i'] = format_string(
+                            $course->fullname,
+                            true,
+                            ['context' => $coursecontext]
+                        );
                     }
                 }
                 if (stripos($text, '{coursename ') !== false) {
@@ -1786,57 +2393,62 @@ class filter_filtercodes extends moodle_text_filter {
                     foreach ($courseids as $id) {
                         $course = $DB->get_record('course', ['id' => $id]);
                         if (!empty($course)) {
-                            $replace['/\{coursename ' . $course->id . '\}/isuU'] = format_string($course->fullname, true,
-                                    ['context' => $coursecontext]);
+                            $replace['/\{coursename ' . $course->id . '\}/isuU'] = format_string(
+                                $course->fullname,
+                                true,
+                                ['context' => $coursecontext]
+                            );
                         }
                     }
                     unset($matches, $course, $courseids, $id);
                 }
             }
 
-            // Tag: {courseshortname}. The short name of this course.
-            if (stripos($text, '{courseshortname}') !== false) {
-                $course = $PAGE->course;
-                if ($course->id == $SITE->id) { // Front page - use site name.
-                    $replace['/\{courseshortname\}/i'] = format_string($SITE->shortname);
-                } else { // In a course - use course full name.
-                    $coursecontext = context_course::instance($course->id);
-                    $replace['/\{courseshortname\}/i'] = format_string($course->shortname, true, ['context' => $coursecontext]);
-                }
-            }
-
-            // Tag: {courseimage} and {courseimage-url}. The course image.
             if (stripos($text, '{courseimage') !== false) {
                 $course = $PAGE->course;
-                $imgurl = '';
-                $context = context_course::instance($course->id);
-                if ($course instanceof stdClass) {
-                    $course = new \core_course_list_element($course);
-                }
-                $coursefiles = $course->get_course_overviewfiles();
-                foreach ($coursefiles as $file) {
-                    if ($isimage = $file->is_valid_image()) {
-                        $imgurl = file_encode_url("/pluginfile.php", '/' . $file->get_contextid() . '/' . $file->get_component()
-                                . '/' . $file->get_filearea() . $file->get_filepath() . $file->get_filename() , !$isimage);
-                        $imgurl = new moodle_url($imgurl);
-                        break;
+                if ($CFG->branch >= 33) {
+                    $imgurl = \core_course\external\course_summary_exporter::get_course_image($course);
+                } else { // Previous to Moodle 3.3.
+                    $imgurl = '';
+                    $context = context_course::instance($course->id);
+                    if ($course instanceof stdClass) {
+                        $course = new \core_course_list_element($course);
+                    }
+                    $coursefiles = $course->get_course_overviewfiles();
+                    foreach ($coursefiles as $file) {
+                        if ($isimage = $file->is_valid_image()) {
+                            $filename = '/' . $file->get_contextid() . '/' . $file->get_component()
+                                . '/' . $file->get_filearea() . $file->get_filepath() . $file->get_filename();
+                            $imgurl = file_encode_url("/pluginfile.php", $filename, !$isimage);
+                            break;
+                        }
                     }
                 }
                 if (empty($imgurl)) {
                     global $OUTPUT;
                     $imgurl = $OUTPUT->get_generated_image_for_id($course->id);
                 }
+
+                // Tag: {courseimage}.
+                // Description: Course image as rendeable HTML img tag.
+                // Parameters: None.
                 if (stripos($text, '{courseimage}') !== false) {
                     $replace['/\{courseimage\}/i'] = '<img src="' . $imgurl . '" class="img-responsive">';
                 }
+
+                // Tag: {courseimage-url}.
+                // Description: Course image URL.
+                // Parameters: none.
                 if (stripos($text, '{courseimage-url}') !== false) {
                     $replace['/\{courseimage-url\}/i'] = $imgurl;
                 }
             }
 
-            // Tag: {coursestartdate} or {coursestartdate dateTimeFormat id}. The course start date.
+            // Tag: {coursestartdate} or {coursestartdate dateTimeFormat courseid}.
+            // Description: The course start date.
+            // Optional Parameters: dateTimeFormat - either in a Moodle datetime format or a PHP strftime format.
+            // Optional Parameters: id - id of a course.
             if (stripos($text, '{coursestartdate') !== false) {
-
                 // Replace {coursestartdate} tag with formatted date.
                 if (stripos($text, '{coursestartdate}') !== false) {
                     if (!empty($PAGE->course->startdate)) {
@@ -1853,7 +2465,8 @@ class filter_filtercodes extends moodle_text_filter {
 
                 // Replace {coursestartdate dateTimeFormat} tag and parameters with formatted date.
                 if (stripos($text, '{coursestartdate ') !== false) {
-                    $newtext = preg_replace_callback('/\{coursestartdate\s(.*)(\s\d+)?\}/isuU',
+                    $newtext = preg_replace_callback(
+                        '/\{coursestartdate\s(.*)(\s\d+)?\}/isuU',
                         function ($matches) use ($PAGE, $DB) {
 
                             // Optional date/time format.
@@ -1871,8 +2484,12 @@ class filter_filtercodes extends moodle_text_filter {
                                 if (!empty($PAGE->course->startdate)) {
                                     $startdate = $PAGE->course->startdate;
                                 } else {
-                                    $startdate = $DB->get_field_select('course', 'startdate', 'id = :id',
-                                            ['id' => $PAGE->course->id]);
+                                    $startdate = $DB->get_field_select(
+                                        'course',
+                                        'startdate',
+                                        'id = :id',
+                                        ['id' => $PAGE->course->id]
+                                    );
                                 }
                             } else { // Course ID was specifed.
                                 $course = $DB->get_record('course', ['id' => $matches[2]]);
@@ -1881,8 +2498,12 @@ class filter_filtercodes extends moodle_text_filter {
                                     if (!empty($course->startdate)) {
                                         $startdate = $course->startdate;
                                     } else {
-                                        $startdate = $DB->get_field_select('course', 'startdate', 'id = :id',
-                                                ['id' => $course->id]);
+                                        $startdate = $DB->get_field_select(
+                                            'course',
+                                            'startdate',
+                                            'id = :id',
+                                            ['id' => $course->id]
+                                        );
                                     }
                                 } else {
                                     // Should only happen if course does not exist.
@@ -1892,10 +2513,8 @@ class filter_filtercodes extends moodle_text_filter {
 
                             // Check if this is a built-in Moodle date/time format.
                             if (!empty($matches[1]) && get_string_manager()->string_exists($matches[1], 'langconfig')) {
-                                // If it does, get the strftime string.
+                                // It is! Get the strftime string.
                                 $matches[1] = get_string($matches[1], 'langconfig');
-                            } else {
-                                $matches[1] = get_string('strftimedatefullshort');
                             }
 
                             // Format the date.
@@ -1911,52 +2530,114 @@ class filter_filtercodes extends moodle_text_filter {
                     );
                     if ($newtext !== false) {
                         $text = $newtext;
-                        $changed = true;
                     }
                 } else {
                     $replace['/\{coursestartdate(.*)\}/isuU'] = get_string('notyetstarted', 'completion');
                 }
             }
 
-            // Tag: {courseenddate} or {coursesenddate dateTimeFormat}. The course end date.
+            // Tag: {courseenddate} or {coursesenddate dateTimeFormat courseid}.
+            // Description: The course end date.
+            // Optional Parameters: dateTimeFormat - either in a Moodle datetime format or a PHP strftime format.
+            // Optional Parameters: id - id of a course.
             if (stripos($text, '{courseenddate') !== false) {
-                if (empty($PAGE->course->enddate)) {
-                    $PAGE->course->enddate = $DB->get_field_select('course', 'enddate', 'id = :id', ['id' => $PAGE->course->id]);
+                // Replace {courseenddate} tag with formatted date.
+                if (stripos($text, '{courseenddate}') !== false) {
+                    if (empty($PAGE->course->enddate)) {
+                        $enddate = $PAGE->course->enddate;
+                    } else {
+                        $enddate = $DB->get_field_select('course', 'enddate', 'id = :id', ['id' => $PAGE->course->id]);
+                    }
+                    if (!empty($enddate)) {
+                        $replace['/\{courseenddate\}/i'] = userdate($startdate, get_string('strftimedatefullshort'));
+                    } else {
+                        $replace['/\{courseenddate(.*)\}/isuU'] = get_string('none');
+                    }
                 }
-                if (!empty($PAGE->course->enddate)) {
-                    // Replace {courseenddate} tag with formatted date.
-                    if (stripos($text, '{courseenddate}') !== false) {
-                        $replace['/\{courseenddate\}/i'] = userdate($PAGE->course->enddate, get_string('strftimedatefullshort'));
-                    }
-                    // Replace {courseenddate dateTimeFormat} tag and parameters with formatted date.
-                    if (stripos($text, '{courseenddate ') !== false) {
-                        $newtext = preg_replace_callback('/\{courseenddate\s+(.*)\}/isuU',
-                            function ($matches) use ($PAGE) {
-                                // Check if this is a built-in Moodle date/time format.
-                                if (!empty($matches[1]) && get_string_manager()->string_exists($matches[1], 'langconfig')) {
-                                    // It is! Get the strftime string.
-                                    $matches[1] = get_string($matches[1], 'langconfig');
+
+                // Replace {courseenddate dateTimeFormat} tag and parameters with formatted date.
+                if (stripos($text, '{courseenddate ') !== false) {
+                    $newtext = preg_replace_callback(
+                        '/\{courseenddate\s(.*)(\s\d+)?\}/isuU',
+                        function ($matches) use ($PAGE, $DB) {
+
+                            // Optional date/time format.
+                            if (is_numeric($matches[1])) {
+                                // Only the course ID was specified.
+                                $matches[2] = trim($matches[1]); // Course ID.
+                                $matches[1] = ''; // Date/time format.
+                            } else {
+                                $matches[2] = empty($matches[2]) ? $PAGE->course->id : trim($matches[2]); // Course ID.
+                                $matches[1] = trim($matches[1]);
+                            }
+
+                            // Optional course ID.
+                            if (empty($matches[2])) { // No course ID, use current course.
+                                if (!empty($PAGE->course->enddate)) {
+                                    $enddate = $PAGE->course->enddate;
+                                } else {
+                                    $enddate = $DB->get_field_select(
+                                        'course',
+                                        'enddate',
+                                        'id = :id',
+                                        ['id' => $PAGE->course->id]
+                                    );
                                 }
-                                return userdate($PAGE->course->enddate, $matches[1]);
-                            },
-                            $text
-                        );
-                        if ($newtext !== false) {
-                            $text = $newtext;
-                            $changed = true;
-                        }
+                            } else { // Course ID was specifed.
+                                $course = $DB->get_record('course', ['id' => $matches[2]]);
+                                if (!empty($course)) {
+                                    $enddate = $course->enddate;
+                                    if (!empty($course->enddate)) {
+                                        $enddate = $course->enddate;
+                                    } else {
+                                        $enddate = $DB->get_field_select(
+                                            'course',
+                                            'enddate',
+                                            'id = :id',
+                                            ['id' => $course->id]
+                                        );
+                                    }
+                                } else {
+                                    // Should only happen if course does not exist.
+                                    $enddate = 1; // December 31, 1969.
+                                }
+                            }
+
+                            // Check if this is a built-in Moodle date/time format.
+                            if (!empty($matches[1]) && get_string_manager()->string_exists($matches[1], 'langconfig')) {
+                                // It is! Get the strftime string.
+                                $matches[1] = get_string($matches[1], 'langconfig');
+                            }
+
+                            // Format the date.
+                            if (!empty($enddate)) {
+                                $enddate = userdate($enddate, $matches[1]);
+                            } else {
+                                $enddate = get_string('none');
+                            }
+
+                            return $enddate;
+                        },
+                        $text
+                    );
+                    if ($newtext !== false) {
+                        $text = $newtext;
                     }
-                } else { // No end date has been set.
+                } else {
                     $replace['/\{courseenddate(.*)\}/isuU'] = get_string('none');
                 }
             }
 
-            // Tag: {coursecompletiondate} or {coursecompletiondate dateTimeFormat}. The course completion date.
+            // Tag: {coursecompletiondate} or {coursecompletiondate dateTimeFormat}.
+            // Description: The course completion date.
+            // Optional Parameters: dateTimeFormat - either in a Moodle datetime format or a PHP strftime format.
             if (stripos($text, '{coursecompletiondate') !== false) {
-                if ($PAGE->course
-                        && isset($CFG->enablecompletion)
-                        && $CFG->enablecompletion == 1 // COMPLETION_ENABLED.
-                        && $PAGE->course->enablecompletion) {
+                if (
+                    $PAGE->course
+                    && isset($CFG->enablecompletion)
+                    && $CFG->enablecompletion == 1 // COMPLETION_ENABLED.
+                    && $PAGE->course->enablecompletion
+                ) {
                     $ccompletion = new completion_completion(['userid' => $USER->id, 'course' => $PAGE->course->id]);
                     $incomplete = get_string('notcompleted', 'completion');
                 } else { // Completion not enabled.
@@ -1965,23 +2646,27 @@ class filter_filtercodes extends moodle_text_filter {
                 if (!empty($ccompletion->timecompleted)) {
                     // Replace {coursecompletiondate} tag with formatted date.
                     if (stripos($text, '{coursecompletiondate}') !== false) {
-                        $replace['/\{coursecompletiondate\}/i'] = userdate($ccompletion->timecompleted,
-                                get_string('strftimedatefullshort'));
+                        $replace['/\{coursecompletiondate\}/i'] = userdate(
+                            $ccompletion->timecompleted,
+                            get_string('strftimedatefullshort')
+                        );
                     }
                     // Replace {coursecompletiondate dateTimeFormat} tag and parameters with formatted date.
                     if (stripos($text, '{coursecompletiondate ') !== false) {
-                        $newtext = preg_replace_callback('/\{coursecompletiondate\s+(.+)\}/isuU',
-                            function($matches) use ($ccompletion) {
+                        $newtext = preg_replace_callback(
+                            '/\{coursecompletiondate\s+(.+)\}/isuU',
+                            function ($matches) use ($ccompletion) {
                                 // Check if this is a built-in Moodle date/time format.
                                 if (!empty($matches[1]) && get_string_manager()->string_exists($matches[1], 'langconfig')) {
                                     // It is! Get the strftime string.
                                     $matches[1] = get_string($matches[1], 'langconfig');
                                 }
                                 return userdate($ccompletion->timecompleted, $matches[1]);
-                            }, $text);
+                            },
+                            $text
+                        );
                         if ($newtext !== false) {
                             $text = $newtext;
-                            $changed = true;
                         }
                     }
                 } else {
@@ -1989,7 +2674,9 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {courseenrolmentdate} or {courseenrolmentdate dateTimeFormat}. The course enrolment date.
+            // Tag: {courseenrolmentdate} or {courseenrolmentdate dateTimeFormat}.
+            // Description: The course enrolment date.
+            // Optional Parameters: dateTimeFormat - either in a Moodle datetime format or a PHP strftime format.
             if (stripos($text, '{courseenrolmentdate') !== false) {
                 $sql = '
                     SELECT ue.timecreated
@@ -2007,18 +2694,20 @@ class filter_filtercodes extends moodle_text_filter {
                     }
                     // Replace {courseenrolmentdate dateTimeFormat} tag and parameters with formatted date.
                     if (stripos($text, '{courseenrolmentdate ') !== false) {
-                        $newtext = preg_replace_callback('/\{courseenrolmentdate\s+(.+)\}/isuU',
-                            function($matches) use ($datecreated) {
+                        $newtext = preg_replace_callback(
+                            '/\{courseenrolmentdate\s+(.+)\}/isuU',
+                            function ($matches) use ($datecreated) {
                                 // Check if this is a built-in Moodle date/time format.
                                 if (!empty($matches[1]) && get_string_manager()->string_exists($matches[1], 'langconfig')) {
                                     // It is! Get the strftime string.
                                     $matches[1] = get_string($matches[1], 'langconfig');
                                 }
                                 return userdate($datecreated, $matches[1]);
-                            }, $text);
+                            },
+                            $text
+                        );
                         if ($newtext !== false) {
                             $text = $newtext;
-                            $changed = true;
                         }
                     }
                 } else {
@@ -2026,14 +2715,18 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {coursecount}. The total number of courses.
+            // Tag: {coursecount}.
+            // Description: The total number of courses.
+            // Parameters:  None.
             if (stripos($text, '{coursecount}') !== false) {
                 // Count courses excluding front page.
                 $cnt = $DB->count_records('course', []) - 1;
                 $replace['/\{coursecount\}/i'] = $cnt;
             }
 
-            // Tag: {coursesactive}. Display's the total visible courses.
+            // Tag: {coursesactive}.
+            // Description: The total number of active visible courses: visibility set to Show, started, not ended.
+            // Parameters:  None.
             if (stripos($text, '{coursesactive}') !== false) {
                 // Count current courses (between start and end date, if any) set to Show - excluding front page.
                 $today = time();
@@ -2047,7 +2740,9 @@ class filter_filtercodes extends moodle_text_filter {
                 $replace['/\{coursesactive\}/i'] = $cnt;
             }
 
-            // Tag: {coursegrade}. Overall grade in a courses, with percentage symbol.
+            // Tag: {coursegrade}.
+            // Description: Overall grade in a courses, with percentage symbol.
+            // Parameters:  None.
             if (version_compare(PHP_VERSION, '7.0.0') >= 0 && stripos($text, '{coursegrade}') !== false) {
                 require_once($CFG->libdir . '/gradelib.php');
                 require_once($CFG->dirroot . '/grade/querylib.php');
@@ -2056,15 +2751,15 @@ class filter_filtercodes extends moodle_text_filter {
                 if (!empty($grademax = floatval($gradeobj->item->grademax))) {
                     $grade = (int)($gradeobj->grade / floatval($grademax) * 100) ?? 0;
                 }
-                $replace['/\{coursegrade\}/i'] = get_string('percents', '', $grade);;
+                $replace['/\{coursegrade\}/i'] = get_string('percents', '', $grade);
             }
 
-            // Tag: {courseprogress} and {courseprogressbar}.
-            // Course progress percentage as text.
             if (stripos($text, '{courseprogress') !== false) {
                 $progress = $this->completionprogress();
 
-                // Course completion progress percentage as formatted text.
+                // Tag: {courseprogress}.
+                // Description: Course completion progress percentage as formatted text.
+                // Parameters:  None.
                 if (stripos($text, '{courseprogress}') !== false) {
                     if ($progress != -1) { // Is enabled.
                         $replace['/\{courseprogress\}/i'] = '<span class="sr-only">'
@@ -2075,7 +2770,9 @@ class filter_filtercodes extends moodle_text_filter {
                     }
                 }
 
-                // Course completion progress bar.
+                // Tag: {courseprogressbar}.
+                // Description: Course completion progress bar.
+                // Parameters:  None.
                 if (stripos($text, '{courseprogressbar}') !== false) {
                     if ($progress != -1) { // Is enabled.
                         $replace['/\{courseprogressbar\}/i'] = '
@@ -2092,7 +2789,8 @@ class filter_filtercodes extends moodle_text_filter {
             }
 
             // Tag: {coursecards} and {coursecards <categoryid>}.
-            // Display courses in a category branch as cards.
+            // Description: Courses in a category branch as cards
+            // Optional Parameters: The category ID number.
             if (stripos($text, '{coursecards') !== false) {
                 global $OUTPUT;
 
@@ -2101,13 +2799,13 @@ class filter_filtercodes extends moodle_text_filter {
                     'recursive' => true,
                     'limit' => $CFG->frontpagecourselimit,
                     'viewmoreurl' => new moodle_url('/course/index.php'),
-                    'viewmoretext' => new lang_string('fulllistofcourses')
+                    'viewmoretext' => new lang_string('fulllistofcourses'),
                 ]);
 
                 $chelper->set_attributes(['class' => 'frontpage-course-list-all']);
                 // Find all coursecards tags where category ID was specified.
                 preg_match_all('/\{coursecards ([0-9]+)\}/', $text, $matches);
-                // Check if tag with no cateogry.
+                // Check if tag with no category.
                 $nocat = (stripos($text, '{coursecards}') !== false);
                 if ($nocat) {
                     $matches[1][] = 0;
@@ -2143,7 +2841,8 @@ class filter_filtercodes extends moodle_text_filter {
             }
 
             // Tag: {coursecard courseid}.
-            // Display a course card for the specified course id.
+            // Description: Display a course card for the specified course id.
+            // Optional Parameters: a courseid number. If not specified, will use the current course's id or the site id (1).
             if (stripos($text, '{coursecard ') !== false) {
                 $re = '/\{coursecard\s([\s\d]+)\}/isuU';
                 $found = preg_match_all($re, $text, $matches);
@@ -2171,7 +2870,8 @@ class filter_filtercodes extends moodle_text_filter {
             }
 
             // Tag: {coursecardsbyenrol}.
-            // Display list of 10 most popular courses by enrolment count (tested with MySQL and PostgreSQL).
+            // Description: Display list of 10 most popular courses by enrolment count (tested with MySQL and PostgreSQL).
+            // Parameters:  None.
             if (stripos($text, '{coursecardsbyenrol}') !== false) {
                 $sql = "SELECT c.id, c.fullname, COUNT(*) AS enrolments
                         FROM {course} c
@@ -2180,7 +2880,7 @@ class filter_filtercodes extends moodle_text_filter {
                                 JOIN {enrol} e ON e.id = ue.enrolid) ue ON ue.courseid = c.id
                         GROUP BY c.id, c.fullname
                         ORDER BY 3 DESC, c.fullname";
-                $courses = $DB->get_records_sql($sql, array(), 0, get_config('filter_filtercodes', 'coursecardsbyenrol'));
+                $courses = $DB->get_records_sql($sql, [], 0, get_config('filter_filtercodes', 'coursecardsbyenrol'));
                 $rcourseids = array_keys($courses);
                 if (count($rcourseids) > 0) {
                     $card = $this->getcoursecardinfo();
@@ -2194,7 +2894,9 @@ class filter_filtercodes extends moodle_text_filter {
                 $replace['/\{coursecardsbyenrol\}/i'] = !empty($content) ? $card->header . $content . $card->footer : '';
             }
 
-            // Tag: {courserequest}. Link to Request a Course form.
+            // Tag: {courserequest}.
+            // Description: Link to Request a Course form.
+            // Parameters:  None.
             if (stripos($text, '{courserequest}') !== false) {
                 // Add request a course link.
                 $context = context_system::instance();
@@ -2210,11 +2912,18 @@ class filter_filtercodes extends moodle_text_filter {
                 // Add request a course link.
                 $context = context_system::instance();
                 if (!empty($CFG->enablecourserequests) && has_capability('moodle/course:request', $context)) {
+                    // Tag: {courserequestmenu0}.
+                    // Description: Link to Request a Course form formatted for use as a top level custom menu item.
+                    // Parameters:  None.
                     if (stripos($text, '{courserequestmenu0}') !== false) {
                         // Top level menu.
                         $link = get_string('requestcourse') . '|' . new moodle_url('/course/request.php');
                         $replace['/\{courserequestmenu0\}/i'] = $link;
                     }
+
+                    // Tag: {courserequestmenu}.
+                    // Description: Link to Request a Course form formatted for use as a second level custom menu item.
+                    // Parameters:  None.
                     if (stripos($text, '{courserequestmenu}') !== false) {
                         // Not top level menu.
                         $link = '-###' . PHP_EOL;
@@ -2224,14 +2933,12 @@ class filter_filtercodes extends moodle_text_filter {
                 } else {
                     $replace['/\{courserequestmenu\}/i'] = '';
                 }
-
             }
         }
 
         // These tags: {mycourses} and {mycoursesmenu} and {mycoursescards}.
-        if (stripos($text, '{mycourse') !== false) {
+        if (stripos($text, '{mycourse') !== false || stripos($text, '{myccourse') !== false) {
             if (isloggedin() && !isguestuser()) {
-
                 // Retrieve list of user's enrolled courses.
                 $sortorder = 'visible DESC';
                 // Prevent undefined $CFG->navsortmycoursessort errors.
@@ -2244,8 +2951,10 @@ class filter_filtercodes extends moodle_text_filter {
                 $myccourses = [];
 
                 // Save and remove completed courses from the list.
-                if (isset($CFG->enablecompletion) && $CFG->enablecompletion == 1 // COMPLETION_ENABLED.
-                        && get_config('filter_filtercodes', 'hidecompletedcourses')) {
+                if (
+                    isset($CFG->enablecompletion) && $CFG->enablecompletion == 1 // COMPLETION_ENABLED.
+                    && get_config('filter_filtercodes', 'hidecompletedcourses')
+                ) {
                     foreach ($mycourses as $key => $mycourse) {
                         $ccompletion = new completion_completion(['userid' => $USER->id, 'course' => $mycourse->id]);
                         if (!empty($ccompletion->timecompleted)) {
@@ -2268,7 +2977,9 @@ class filter_filtercodes extends moodle_text_filter {
                     $emptycclist = get_string('nocompletedcourses', 'filter_filtercodes');
                 }
 
-                // Tag: {mycourses}. An unordered list of links to enrolled course.
+                // Tag: {mycourses}.
+                // Description: An unordered list of links to enrolled courses.
+                // Parameters: None.
                 if (stripos($text, '{mycourses}') !== false) {
                     $list = '';
                     foreach ($mycourses as $mycourse) {
@@ -2279,7 +2990,9 @@ class filter_filtercodes extends moodle_text_filter {
                     unset($list);
                 }
 
-                // Tag: {myccourses}. An unordered list of links to completed course.
+                // Tag: {myccourses}.
+                // Description: An unordered list of links to completed courses.
+                // Parameters: None.
                 if (stripos($text, '{myccourses}') !== false) {
                     $list = '';
                     foreach ($myccourses as $myccourse) {
@@ -2290,19 +3003,33 @@ class filter_filtercodes extends moodle_text_filter {
                     unset($list);
                 }
 
-                // Tag: {mycoursesmenu}. A custom menu list of enrolled course names with links.
+                // Tag: {mycoursesmenu}.
+                // Description: A custom menu list of enrolled course names with links.
+                // Parameters: None.
                 if (stripos($text, '{mycoursesmenu}') !== false) {
-                    $list = '';
+
+                    $mycoursemen ="{mycoursesmenu}";
+                    if (!restricttag($mycoursemen)){
+                        $list = '';
                     foreach ($mycourses as $mycourse) {
                         $list .= '-' . $mycourse->fullname . '|' .
                             (new moodle_url('/course/view.php', ['id' => $mycourse->id])) . PHP_EOL;
                     }
                     $replace['/\{mycoursesmenu\}/i'] = '-' . (empty($list) ? $emptylist : $list);
                     unset($list);
+                        
+                    }else {
+                        $replace['/\{mycoursesmenu\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                        <strong>{mycoursesmenu}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
+                   
+                    }
+
+                   
                 }
 
                 // Tag: {mycoursescards}.
-                // Generates a course card for each enrolled course.
+                // Description: Generates a course card for each enrolled course.
+                // Parameters: None.
                 if (stripos($text, '{mycoursescards}') !== false) {
                     $list = '';
                     $courseids = [];
@@ -2319,19 +3046,19 @@ class filter_filtercodes extends moodle_text_filter {
                 }
 
                 // Tag: {mycoursescards <categoryid(s)>}.
-                // Generates a course card for each enrolled course in the specified category.
+                // Description: Generates a course card for each enrolled course in the specified category.
+                // Optional Parameters: One or more category ids separated by a space.
                 if (stripos($text, '{mycoursescards ') !== false) {
                     // Get the card format.
                     $card = $this->getcoursecardinfo();
                     // Find all of the mycoursescards tags where category ID was specified.
                     preg_match_all('/{mycoursescards ([^}]*)}/', $text, $matches);
-                    //$catids = array_map('intval', array_filter(explode(' ', $matches[1]), 'is_numeric'));
-                    // For each tag
-                    foreach($matches[0] as $key => $tag) {
+                    // For each tag.
+                    foreach ($matches[0] as $key => $tag) {
                         $catids = array_map('intval', array_filter(explode(' ', $matches[1][$key]), 'is_numeric'));
                         // For each category in each tag.
                         $content = '';
-                        foreach($catids as $catid) {
+                        foreach ($catids as $catid) {
                             // Get all the enrolled courses in the specified category for the user.
                             $courses = $DB->get_records_sql(
                                 "SELECT c.*
@@ -2340,7 +3067,7 @@ class filter_filtercodes extends moodle_text_filter {
                                     JOIN {user_enrolments} ue ON ue.enrolid = e.id
                                     WHERE ue.userid = ? AND c.category = ?
                                     ORDER BY c.shortname",
-                                array($USER->id, $catid)
+                                [$USER->id, $catid]
                             );
                             // Make an array of the course ids and render the course cards.
                             $courseids = array_column($courses, 'id');
@@ -2367,16 +3094,9 @@ class filter_filtercodes extends moodle_text_filter {
             }
         }
 
-        // Any {site*} tags.
-        if (stripos($text, '{site') !== false) {
-
-            // Tag: {siteyear}. Current 4 digit year.
-            if (stripos($text, '{siteyear}') !== false) {
-                $replace['/\{siteyear\}/i'] = date('Y');
-            }
-        }
-
         // Tag: {now} or {now dateTimeFormat}.
+        // Description: Current year, 4 digits.
+        // Optional parameter: dateTimeFormat - either one of Moodle's built-in data/time formats or php's strftime.
         if (stripos($text, '{now') !== false) {
             // Replace {now} tag with formatted date.
             $now = time();
@@ -2385,7 +3105,8 @@ class filter_filtercodes extends moodle_text_filter {
             }
             // Replace {now dateTimeFormat} tag and parameters with formatted date.
             if (stripos($text, '{now ') !== false) {
-                $newtext = preg_replace_callback('/\{now\s+(.+)\}/isuU',
+                $newtext = preg_replace_callback(
+                    '/\{now\s+(.+)\}/isuU',
                     function ($matches) use ($now) {
                         // Check if this is a built-in Moodle date/time format.
                         if (!empty($matches[1]) && get_string_manager()->string_exists($matches[1], 'langconfig')) {
@@ -2398,33 +3119,194 @@ class filter_filtercodes extends moodle_text_filter {
                 );
                 if ($newtext !== false) {
                     $text = $newtext;
-                    $changed = true;
                 }
             }
             unset($now);
         }
+        /**
+         * New tag {ifbetween}
+         * Joel Dapiawen November 6, 2023
+         * Tag: {ifbetween} filtercode to hide and show a content if a date falls within a certain range
+         */
+        if (stripos($text, '{ifbetween') !== false) {
 
-        // Tag: {editingmode}. Is "off" if in edit page mode. Otherwise "on". Useful for creating Turn Editing On/Off links.
+        // Find all {ifbetween} tags and their corresponding content
+        $matches = [];
+        preg_match_all('/{ifbetween\s+([\d\/\s:]+),\s+([\d\/\s:]+)}(.*?){\/ifbetween}/is', $text, $matches, PREG_SET_ORDER);
+        $currentTimestamp = time();
+            foreach ($matches as $match) {
+                $startDate = $match[1];
+                $endDate = $match[2];
+                $content = $match[3];
+            
+                // If the start date does not include a time, add a default time (e.g., 00:00:00)
+                if (!preg_match('/\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}:\d{1,2}/', $startDate)) {
+                    $startDate .= ' 00:00:00';
+                }
+                // If the end date does not include a time, add a default time (e.g., 23:59:59)
+                if (!preg_match('/\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}:\d{1,2}/', $endDate)) {
+                    $endDate .= ' 23:59:59';
+                }
+                 // Validate the date format using the validateDate function
+                if (!self::validateDate($startDate) || !self::validateDate($endDate)) {
+                     $errorFeedback = "<div class ='alert alert-danger'> Invalid date format -";
+                        
+                        if (!self::validateDate($startDate)) {
+                            $errorFeedback .= " Start Date: $startDate";
+                        }
+                        
+                        if (!self::validateDate($endDate)) {
+                            if (!self::validateDate($startDate)) {
+                                $errorFeedback .= " and";
+                            }
+                            $errorFeedback .= " End Date: $endDate";
+                        }
+                        
+                        $errorFeedback .= ", Please use the format: dd/mm/yyyy hh:mm:ss  </div>";
+                        
+                        $text = str_replace($match[0], $errorFeedback, $text);
+                } else {
+                $startDatestamp = date_create_from_format('d/m/Y H:i:s', $startDate);
+                $endDatestamp = date_create_from_format('d/m/Y H:i:s', $endDate);
+            
+                if ($currentTimestamp >= $startDatestamp->getTimestamp() && $currentTimestamp <= $endDatestamp->getTimestamp()) {
+                    $text = str_replace($match[0], $content, $text);
+                } else {
+                    $text = str_replace($match[0], '', $text);
+                }
+                }
+            }
+            
+        }
+        /**
+         * New tag {ifbefore}
+         * Joel Dapiawen November 6, 2023
+         * Tag: {ifbefore} filtercode to hide and show a content if a date falls before a certain date.
+         */
+       
+        if (stripos($text, '{ifbefore') !== false) {
+            // Find all {ifbetween} tags and their corresponding content
+        $matches = [];
+        preg_match_all('/{ifbefore\s+([\d\/\s:]+)}(.*?){\/ifbefore}/is', $text, $matches, PREG_SET_ORDER);
+        $currentTimestamp = time();
+            foreach ($matches as $match) {
+                $beforeDate = $match[1];
+                $content = $match[2];
+
+                  // If the start date does not include a time, add a default time (e.g., 00:00:00)
+                   if (!preg_match('/\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}:\d{1,2}/', $beforeDate)) {
+                            $beforeDate .= ' 00:00:00';
+                     }
+               
+                 // Validate the date format using the validateDate function
+                if (!self::validateDate($beforeDate)) {
+                     $errorFeedback = "<div class ='alert alert-danger'> Invalid date format -";
+                        
+                        if (!self::validateDate($beforeDate)) {
+                            $errorFeedback .= " Before date: $beforeDate";
+                        }
+                        $errorFeedback .= ", Please use the format: dd/mm/yyyy hh:mm:ss </div>";
+                        
+                        $text = str_replace($match[0], $errorFeedback, $text);
+                } else {
+
+                $beforeDatestamp = date_create_from_format('d/m/Y H:i:s', $beforeDate);
+                if ($beforeDatestamp) {
+
+                    if ($currentTimestamp < $beforeDatestamp->getTimestamp()) {
+                         $text = str_replace($match[0], $content, $text);
+                    } else {
+                         $text = str_replace($match[0], '', $text);
+                        
+                    }
+                }
+
+            } 
+        
+        }
+        }
+        /**
+         * New tag {ifafter}
+         * Joel Dapiawen November 6, 2023
+         * Tag: {ifafter} filtercode to hide and show a content if a date falls after a certain date.
+         */
+        if (stripos($text, '{ifafter') !== false) {
+        $matches = [];
+        preg_match_all('/{ifafter\s+([\d\/\s:]+)}(.*?){\/ifafter}/is', $text, $matches, PREG_SET_ORDER);
+        $currentTimestamp = time();
+            foreach ($matches as $match) {
+                $ifafterDate = $match[1];
+                $content = $match[2];
+                
+                 // If the start date does not include a time, add a default time (e.g., 00:00:00)
+                 if (!preg_match('/\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{1,2}:\d{1,2}/', $ifafterDate)) {
+                    $ifafterDate .= ' 00:00:00';
+                 }
+                  // Validate the date format using the validateDate function
+                if (!self::validateDate($ifafterDate)) {
+                      $errorFeedback = "<div class ='alert alert-danger'> Invalid date format -";
+                        
+                        if (!self::validateDate($ifafterDate)) {
+                            $errorFeedback .= " After date: $ifafterDate";
+                        }
+                        $errorFeedback .= ", Please use the format: dd/mm/yyyy hh:mm:ss </div>";
+                        
+                        $text = str_replace($match[0], $errorFeedback, $text);
+                } else {
+                $ifafterDatestamp = date_create_from_format('d/m/Y H:i:s', $ifafterDate);
+                if ($ifafterDatestamp) {
+            
+                    if ($currentTimestamp > $ifafterDatestamp->getTimestamp()) {
+                         $text = str_replace($match[0], $content, $text);
+                    } else {
+                         $text = str_replace($match[0], '', $text);
+                    }
+                }
+            }
+        }
+        }
+      
+
+
+        // Tag: {editingtoggle}.
+        // Description: Is "off" if in edit page mode. Otherwise "on". Useful for creating Turn Editing On/Off links.
+        // Parameters: None.
         if (stripos($text, '{editingtoggle}') !== false) {
+            $editon ="{editingtoggle}";
+            if (!restricttag($editon)){
             $replace['/\{editingtoggle\}/i'] = ($PAGE->user_is_editing() ? 'off' : 'on');
+            }else {
+                $replace['/\{editingtoggle\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                <strong>{editingtoggle}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
+        
+            }
+
         }
 
-        // Tag: {toggleeditingmenu}. Creates menu link to toggle editing on and off.
+        // Tag: {toggleeditingmenu}.
+        // Description: Creates menu link to toggle editing on and off.
+        // Parameters: None.
         if (stripos($text, '{toggleeditingmenu}') !== false) {
-            $editmode = ($PAGE->user_is_editing() ? 'off' : 'on');
-            $edittext = get_string('turnediting' . $editmode);
-            if ($PAGE->bodyid == 'page-site-index' && $PAGE->pagetype == 'site-index') { // Front page.
-                $replace['/\{toggleeditingmenu\}/i'] = $edittext . '|' . (new moodle_url('/course/view.php',
-                        ['id' => $PAGE->course->id, 'sesskey' => sesskey(), 'edit' => $editmode]));
-            } else { // All other pages.
-                $replace['/\{toggleeditingmenu\}/i'] = $edittext . '|' . (new moodle_url($PAGE->url,
-                        ['edit' => $editmode, 'adminedit' => $editmode, 'sesskey' => sesskey()])) . PHP_EOL;
+            $toggleme ="{toggleeditingmenu}";
+            if (!restricttag($toggleme)) {
+                $editmode = ($PAGE->user_is_editing() ? 'off' : 'on');
+                $edittext = get_string('turnediting' . $editmode);
+                if ($PAGE->bodyid == 'page-site-index' && $PAGE->pagetype == 'site-index') { // Front page.
+                    $replace['/\{toggleeditingmenu\}/i'] = $edittext . '|' . (new moodle_url(
+                        '/course/view.php',
+                        ['id' => $PAGE->course->id, 'sesskey' => sesskey(), 'edit' => $editmode]
+                    ));
+                } else { // All other pages.
+                    $replace['/\{toggleeditingmenu\}/i'] = $edittext . '|' . (new moodle_url(
+                        $PAGE->url,
+                        ['edit' => $editmode, 'adminedit' => $editmode, 'sesskey' => sesskey()]
+                    )) . PHP_EOL;
+                }
             }
         }
 
         // Tags starting with: {categor...}.
         if (stripos($text, '{categor') !== false) {
-
             if (empty($PAGE->course->category)) {
                 // If we are not in a course, check if categoryid is part of URL (ex: course lists).
                 $catid = optional_param('categoryid', 0, PARAM_INT);
@@ -2433,16 +3315,13 @@ class filter_filtercodes extends moodle_text_filter {
                 $catid = $PAGE->course->category;
             }
 
-            // Tag: {categoryid}.
-            if (stripos($text, '{categoryid}') !== false) {
-                $replace['/\{categoryid\}/i'] = $catid;
-            }
-
             if (!empty($catid)) {
                 $category = $DB->get_record('course_categories', ['id' => $catid]);
             }
 
             // Tag: {categoryname}.
+            // Description: Name of category in which the current course is located.
+            // Parameters: None.
             if (stripos($text, '{categoryname}') !== false) {
                 if (!empty($catid)) {
                     // If category is not 0, get category name.
@@ -2454,6 +3333,8 @@ class filter_filtercodes extends moodle_text_filter {
             }
 
             // Tag: {categorynumber}.
+            // Description: categorynumber of the category in which the current course is located, as set in the category settings.
+            // Parameters: None.
             if (stripos($text, '{categorynumber}') !== false) {
                 if (!empty($catid)) {
                     // If category is not 0, get category number.
@@ -2465,23 +3346,37 @@ class filter_filtercodes extends moodle_text_filter {
             }
 
             // Tag: {categorydescription}.
+            // Description: Description of the category in which the current course is located, as set in the category settings.
+            // Parameters: None.
             if (stripos($text, '{categorydescription}') !== false) {
                 if (!empty($catid)) {
                     // If category is not 0, get category description.
-                    $replace['/\{categorydescription\}/i'] = $category->description;
+                    $catcontext = context_coursecat::instance($category->id);
+                    // Resolve embedded URLs that might be in the description.
+                    $description = file_rewrite_pluginfile_urls(
+                        $category->description,
+                        'pluginfile.php',
+                        $catcontext->id,
+                        'coursecat',
+                        'description',
+                        0
+                    );
+                    $replace['/\{categorydescription\}/i'] = $description;
                 } else {
                     // Otherwise, category has no description.
                     $replace['/\{categorydescription\}/i'] = '';
                 }
             }
 
-            // Tag: {categories}. An unordered list of links to categories.
+            // Tag: {categories}.
+            // Description: An unordered list of links to categories.
+            // Parameters: None.
             if (stripos($text, '{categories}') !== false) {
                 // Retrieve list of all categories.
                 if ($CFG->branch >= 36) { // Moodle 3.6+.
                     $categories = core_course_category::make_categories_list();
                 } else {
-                    require_once($CFG->libdir. '/coursecatlib.php');
+                    require_once($CFG->libdir . '/coursecatlib.php');
                     $categories = coursecat::make_categories_list();
                 }
                 $list = '';
@@ -2495,13 +3390,15 @@ class filter_filtercodes extends moodle_text_filter {
                 unset($list);
             }
 
-            // Tag: {categoriesmenu}. An unordered list of links to categories.
+            // Tag: {categoriesmenu}.
+            // Description: A list of categories with links - for use in the custom menu as a submenu.
+            // Parameters: None.
             if (stripos($text, '{categoriesmenu}') !== false) {
                 // Retrieve list of all categories.
                 if ($CFG->branch >= 36) { // Moodle 3.6+.
                     $categories = core_course_category::make_categories_list();
                 } else {
-                    require_once($CFG->libdir. '/coursecatlib.php');
+                    require_once($CFG->libdir . '/coursecatlib.php');
                     $categories = coursecat::make_categories_list();
                 }
                 $list = '';
@@ -2513,7 +3410,9 @@ class filter_filtercodes extends moodle_text_filter {
                 unset($list);
             }
 
-            // Tag: {categories0}. An unordered list of links to top level categories.
+            // Tag: {categories0}.
+            // Description: An unordered list of links to top level categories.
+            // Parameters: None.
             if (stripos($text, '{categories0}') !== false) {
                 $sql = "SELECT cc.id, cc.sortorder, cc.name, cc.visible, cc.parent
                         FROM {course_categories} cc
@@ -2531,9 +3430,14 @@ class filter_filtercodes extends moodle_text_filter {
                 unset($list);
             }
 
-            // Tag: {categories0menu}. A custom menu list of top level categories with links.
+            // Tag: {categories0menu}.
+            // Description: A list of top level categories with links - for use in the custom menu as a top level menu.
+            // Parameters: None.
             if (stripos($text, '{categories0menu}') !== false) {
-                $sql = "SELECT cc.id, cc.sortorder, cc.name, cc.visible, cc.parent
+               
+                $cattopmenu ="{categories0menu}";
+                if (!restricttag($cattopmenu)){
+                    $sql = "SELECT cc.id, cc.sortorder, cc.name, cc.visible, cc.parent
                         FROM {course_categories} cc
                         WHERE cc.parent = 0 AND cc.visible = 1
                         ORDER BY cc.sortorder";
@@ -2545,9 +3449,18 @@ class filter_filtercodes extends moodle_text_filter {
                 $categories->close();
                 $replace['/\{categories0menu\}/i'] = $list;
                 unset($list);
+                    
+                }else {
+                    $replace['/\{categories0menu\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                    <strong>{categories0menu}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
+               
+                }
+                
             }
 
-            // Tag: {categoriesx}. An unordered list of links to current level categories.
+            // Tag: {categoriesx}.
+            // Description: An unordered list of links to categories in the same level as the current course.
+            // Parameters: None.
             if (stripos($text, '{categoriesx}') !== false) {
                 $sql = "SELECT cc.id, cc.sortorder, cc.name, cc.visible, cc.parent
                         FROM {course_categories} cc
@@ -2565,23 +3478,36 @@ class filter_filtercodes extends moodle_text_filter {
                 unset($list);
             }
 
-            // Tag: {categoriesxmenu}. A custom menu list of current categories with links.
+            // Tag: {categoriesxmenu}.
+            // Description: A list of links to categories in the same level as the current course - for use in the custom menu.
+            // Parameters: None.
             if (stripos($text, '{categoriesxmenu}') !== false) {
-                $sql = "SELECT cc.id, cc.sortorder, cc.name, cc.visible, cc.parent
-                        FROM {course_categories} cc
-                        WHERE cc.parent = $catid AND cc.visible = 1
-                        ORDER BY cc.sortorder";
-                $list = '';
-                $categories = $DB->get_recordset_sql($sql, ['contextcoursecat' => CONTEXT_COURSECAT]);
-                foreach ($categories as $category) {
-                    $list .= '-' . $category->name . '|/course/index.php?categoryid=' . $category->id . PHP_EOL;
+                $catxmenu ="{categoriesxmenu}";
+                if (!restricttag($catxmenu)){
+                    $sql = "SELECT cc.id, cc.sortorder, cc.name, cc.visible, cc.parent
+                    FROM {course_categories} cc
+                    WHERE cc.parent = $catid AND cc.visible = 1
+                    ORDER BY cc.sortorder";
+                    $list = '';
+                    $categories = $DB->get_recordset_sql($sql, ['contextcoursecat' => CONTEXT_COURSECAT]);
+                    foreach ($categories as $category) {
+                        $list .= '-' . $category->name . '|/course/index.php?categoryid=' . $category->id . PHP_EOL;
+                    }
+                    $categories->close();
+                    $replace['/\{categoriesxmenu\}/i'] = $list;
+                    unset($list);
+                    
+                }else {
+                    $replace['/\{categoriesxmenu\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                    <strong>{categoriesxmenu}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
+               
                 }
-                $categories->close();
-                $replace['/\{categoriesxmenu\}/i'] = $list;
-                unset($list);
+               
             }
 
-            // Tag: {categorycards} and {categorycards id}. Course categories presented as card tiles.
+            // Tag: {categorycards} and {categorycards categoryid}.
+            // Description: Course sub-categories of the current level presented as card tiles.
+            // Optional Parameter: You can specify a category id to display categories under that category. 0: Top level categories.
             if (stripos($text, '{categorycards') !== false) {
                 $categoryids = [];
                 $thiscategorycard = null;
@@ -2648,6 +3574,8 @@ class filter_filtercodes extends moodle_text_filter {
         }
 
         // Tag {mygroups}.
+        // Description: List of groups that the user is in.
+        // Parameters: None.
         if (stripos($text, '{mygroups}') !== false) {
             static $mygroups;
 
@@ -2664,93 +3592,23 @@ class filter_filtercodes extends moodle_text_filter {
                 $mygroups = $this->formatlist($mygroups);
             }
             $replace['/\{mygroups\}/i'] = $mygroups;
-        }
-
-        // Tag: {referer}.
-        if (stripos($text, '{refer') !== false) {
-            if (stripos($text, '{referer}') !== false) {
-                if ($CFG->branch >= 28) {
-                    $replace['/\{referer\}/i'] = get_local_referer(false);
-                } else {
-                    $replace['/\{referer\}/i'] = !empty($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
-                }
-            }
-            if (stripos($text, '{referrer}') !== false) {
-                if ($CFG->branch >= 28) {
-                    $replace['/\{referrer\}/i'] = get_local_referer(false);
-                } else {
-                    $replace['/\{referrer\}/i'] = !empty($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
-                }
+            if (!$mygroups) {
+                $replace['/\{mygroups\}/i'] = "<div class=\"alert alert-info\">
+                <strong>Note:</strong> You are not currently associated with a group in this course.
+              </div>";
             }
         }
 
-        if (stripos($text, '{www') !== false) {
-            // Tag: {wwwroot}.
-            if (stripos($text, '{wwwroot}') !== false) {
-                $replace['/\{wwwroot\}/i'] = $CFG->wwwroot;
-            }
-
-            // Tag: {wwwcontactform}.
-            if (stripos($text, '{wwwcontactform') !== false) {
-                $replace['/\{wwwcontactform\}/i'] = $CFG->wwwroot . '/local/contact/index.php';
-            }
+        // Tag: {wwwcontactform}.
+        // Description: Action URL for ContactForm form submissions.
+        // Parameters: None.
+        if (stripos($text, '{wwwcontactform}') !== false) {
+            $replace['/\{wwwcontactform\}/i'] = $CFG->wwwroot . '/local/contact/index.php';
         }
 
-        // Tag: {pagepath}.
-        if (stripos($text, '{pagepath}') !== false) {
-            $url = (is_object($PAGE->url) ? $PAGE->url->out_as_local_url() : '');
-            if (strpos($url, '?') === false && strpos($url, '#') === false) {
-                $url .= '?';
-            }
-            $replace['/\{pagepath\}/i'] = $url;
-        }
-
-        if (stripos($text, '{thisurl') !== false) {
-            $url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") .
-                    "://{$_SERVER['HTTP_HOST']}{$_SERVER['REQUEST_URI']}";
-            // Tag: {thisurl}.
-            if (stripos($text, '{thisurl}') !== false) {
-                $replace['/\{thisurl\}/i'] = $url;
-            }
-            // Tag: {thisurl_enc}.
-            if (stripos($text, '{thisurl_enc}') !== false) {
-                $replace['/\{thisurl_enc\}/i'] = urlencode($url);
-            }
-        }
-
-        // Tag: {protocol}.
-        if (stripos($text, '{protocol}') !== false) {
-            $replace['/\{protocol\}/i'] = 'http' . ($this->ishttps() ? 's' : '');
-        }
-
-        // Tag: {ipaddress}.
-        if (stripos($text, '{ipaddress}') !== false) {
-            $replace['/\{ipaddress\}/i'] = getremoteaddr();
-        }
-
-        // Tag: {sesskey}.
-        if (get_config('filter_filtercodes', 'enable_sesskey')) {
-            if (@$PAGE->cm->modname != 'forum' && $PAGE->pagetype != 'admin-cron') {
-                if (stripos($text, '{sesskey}') !== false) {
-                    // Tag: {sesskey}.
-                    $replace['/\{sesskey\}/i'] = sesskey();
-                }
-                // Tag: %7Bsesskey%7D (for encoded URLs).
-                if (stripos($text, '%7Bsesskey%7D') !== false) {
-                    $replace['/%7Bsesskey%7D/i'] = sesskey();
-                }
-            }
-        }
-
-        // Tag: {sectionid}.
-        if (stripos($text, '{sectionid}') !== false) {
-            $replace['/\{sectionid\}/i'] = @$PAGE->cm->sectionnum;
-        }
-        // Alternative Tag: %7Bsectionid%7D.
-        if (stripos($text, '%7Bsectionid%7D') !== false) {
-            $replace['/\%7Bsectionid%7D/i'] = @$PAGE->cm->sectionnum;
-        }
         // Tag: {sectionname}.
+        // Description: The name of the section in which the current activity is located. Blank if not in a course.
+        // Parameters: None.
         if (stripos($text, '{sectionname}') !== false) {
             // If in a course and section name.
             if ($PAGE->course->id != $SITE->id && isset($PAGE->cm->sectionnum)) {
@@ -2761,12 +3619,24 @@ class filter_filtercodes extends moodle_text_filter {
         }
 
         // Tag: {recaptcha}.
+        // Description: Recaptcha. If used, you will need a way to process it as this just displays it. Used by ContactForms.
+        // Parameters: None.
         if (stripos($text, '{recaptcha}') !== false) {
-            $replace['/\{recaptcha\}/i'] = $this->getrecaptcha();
+            
+            $recap ="{recaptcha}";
+                    if (!restricttag($recap)){
+                        $replace['/\{recaptcha\}/i'] = $this->getrecaptcha();
+                    }else {
+                        $replace['/\{recaptcha\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                        <strong>{recaptcha}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
+                   
+                    }
+          
         }
 
         // Tag: {readonly}.
-        // This is to be used in forms to make some fields read-only when user is logged-in as non-guest.
+        // Description: For use in forms to make a field read-only when user is logged-in as non-guest.
+        // Parameters: None.
         if (stripos($text, '{readonly}') !== false) {
             if (isloggedin() && !isguestuser()) {
                 $replace['/\{readonly\}/i'] = 'readonly="readonly"';
@@ -2775,126 +3645,57 @@ class filter_filtercodes extends moodle_text_filter {
             }
         }
 
-        // Tag: {getstring:component_name}stringidentifier{/getstring} or {getstring}stringidentifier{/getstring}.
-        // If component_name (plugin) is not specified, will default to "moodle".
-        if (stripos($text, '{/getstring}') !== false) {
-            // Replace {getstring:} tag and parameters with retrieved content.
-            $newtext = preg_replace_callback('/\{getstring:?(\w*)\}(\w+)\{\/getstring\}/isuU',
-                function($matches) {
-                    if (get_string_manager()->string_exists($matches[2], $matches[1])) {
-                        return get_string($matches[2], $matches[1]);
-                    } else {
-                        return "{getstring" . (!empty($matches[1]) ? ":$matches[1]" : '') . "}$matches[2]{/getstring}";
-                    }
-                }, $text);
-            if ($newtext !== false) {
-                $text = $newtext;
-                $changed = true;
-            }
-        }
-
-        // Tag: {courseunenrolurl}.
-        if (stripos($text, '{courseunenrolurl}') !== false) {
-            require_once($CFG->libdir . '/enrollib.php');
-            $course = $PAGE->course;
-            $coursecontext = context_course::instance($course->id);
-            $replace['/\{courseunenrolurl\}/i'] = '';
-            if ($course->id != SITEID && isloggedin() && !isguestuser() && is_enrolled($coursecontext)) {
-                $plugins   = enrol_get_plugins(true);
-                $instances = enrol_get_instances($course->id, true);
-                foreach ($instances as $instance) {
-                    if (!isset($plugins[$instance->enrol])) {
-                        continue;
-                    }
-                    $plugin = $plugins[$instance->enrol];
-                    if ($unenrollink = $plugin->get_unenrolself_link($instance)) {
-                        $replace['/\{courseunenrolurl\}/i'] = $unenrollink;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Tag: {button}{/button}.
-        if (stripos($text, '{button ') !== false) {
-            $replace['/\{button\s+(.*)\}(.*)\{\/button\}/isuU'] = '<a href="$1" class="btn btn-primary">$2</a>';
-        }
-
-        // Tag: {fa fa-icon-name}.
-        if (stripos($text, '{fa') !== false) {
-            // Replace {fa...} tag and parameters with FontAwesome HTML.
-            $newtext = preg_replace_callback('/\{fa(s|r|l|b){0,1}\sfa-(.*)\}/isuU',
-                function ($matches) {
-                    $matches[0] = $matches[0] == null ? '' : $matches[0];
-                    return '<span class="' . substr($matches[0], 1, -1) . '" aria-hidden="true"></span>';
-                }, $text);
-            if ($newtext !== false) {
-                $text = $newtext;
-                $changed = true;
-            }
-        }
-
-        // Tag: {glyphicon glyphion-name}.
-        if (stripos($text, '{glyphicon ') !== false) {
-            // Replace {glyphicon glyphicon-...} tag and parameters with Glyphicons HTML.
-            $newtext = preg_replace_callback('/\{glyphicon\sglyphicon-(.*)\}/isuU',
-                function ($matches) {
-                    $matches[0] = $matches[0] == null ? '' : $matches[0];
-                    return '<span class="' . substr($matches[0], 1, -1) . '" aria-hidden="true"></span>';
-                }, $text);
-            if ($newtext !== false) {
-                $text = $newtext;
-                $changed = true;
-            }
-        }
-
-        // Tag: {highlight}{/highlight}.
+        // Tag: {highlight}...{/highlight}.
+        // Description: Applies a yellow background to the text, like a yellow highlighter.
+        // Parameters: None.
+        // Requires content between tags.
         if (stripos($text, '{/highlight}') !== false) {
             $replace['/\{highlight\}/i'] = '<mark style="background-color:#FFFF00;">';
             $replace['/\{\/highlight\}/i'] = '</mark>';
         }
 
-        // Tag: {marktext}{/marktext}.
+        // Tag: {marktext}...{/marktext}.
+        // Description: Applies a custom style defined by the fc-marktext CSS class.
+        // Parameters: None.
+        // Requires content between tags.
         if (stripos($text, '{/marktext}') !== false) {
             $replace['/\{marktext\}/i'] = '<mark class="fc-marktext">';
             $replace['/\{\/marktext\}/i'] = '</mark>';
         }
 
-        // Tag: {markborder}{/markborder}.
+        // Tag: {markborder}...{/markborder}.
+        // Description: Applies a red border around content. You can customize the style using the fc-markborder CSS class.
+        // Parameters: None.
+        // Requires content between tags.
         if (stripos($text, '{/markborder}') !== false) {
             $replace['/\{markborder\}/i'] = '<mark class="fc-markborder" style="border:2px dashed red;padding:0.03em 0.25em;">';
             $replace['/\{\/markborder\}/i'] = '</mark>';
         }
 
-        // Tag: {showmore}{/showmore}.
+        // Tag: {showmore}...{/showmore}.
+        // Description: Place part of your content in show more and it will initially appear collapsed with the words "show more".
+        // Parameters: None.
+        // Requires content between tags.
         if (stripos($text, '{/showmore}') !== false) {
             $newtext = str_replace('{showmore}', '<span id="fc-showmore-tmp" class="fc-showmore hidden">', $text);
             if (stripos($newtext, 'fc-showmore-tmp') !== false) {
-                $newtext = preg_replace_callback('/fc-showmore-tmp/', function($matches) {
+                $newtext = preg_replace_callback('/fc-showmore-tmp/', function ($matches) {
                         static $count = 0;
                         return 'showmore-' . $count++;
                 }, $newtext);
                 $text = $newtext;
-                $changed = true;
             }
             $newtext = str_replace('{/showmore}', '</span> <a href="#" class="fc-showmore" style="white-space: nowrap;" ' .
                     'onclick="m=document.getElementById(\'fc-showmore-tmp\').classList;m.toggle(\'hidden\');' .
                     'this.text=(m.contains(\'hidden\')?\'' . get_string('showmore', 'form') . '\':\'' .
                     get_string('showless', 'form') . '\');return false;">' . get_string('showmore', 'form') . '</a>', $newtext);
             if (stripos($newtext, 'fc-showmore-tmp') !== false) {
-                $newtext = preg_replace_callback('/fc-showmore-tmp/', function($matches) {
+                $newtext = preg_replace_callback('/fc-showmore-tmp/', function ($matches) {
                         static $count = 0;
                         return 'showmore-' . $count++;
                 }, $newtext);
                 $text = $newtext;
-                $changed = true;
             }
-        }
-
-        // Tag: {note} - Used to add notes which appear when editing but not displayed.
-        if (stripos($text, '{note}') !== false) {
-            // Remove the note content.
-            $replace['/\{note\}(.*)\{\/note\}/isuU'] = '';
         }
 
         //
@@ -2902,28 +3703,47 @@ class filter_filtercodes extends moodle_text_filter {
         //
 
         // Tag: {nbsp}.
+        // Description: Will be replaced by an HTML non-breaking space (&nbsp).
+        // Parameters: None.
         if (stripos($text, '{nbsp}') !== false) {
             $replace['/\{nbsp\}/i'] = '&nbsp;';
         }
 
         // Tag: {hr}.
+        // Description: Will be replaced by an HTML horizontal rule (<hr>).
+        // Parameters: None.
         if (stripos($text, '{hr}') !== false) {
             $replace['/\{hr\}/i'] = '<hr>';
         }
 
-        // Tag: {langx xx}.
-        if (stripos($text, '{langx ') !== false) {
-            $replace['/\{langx\s+(.*)\}(.*)\{\/langx\}/isuU'] = '<span lang="$1">$2</span>';
-        }
-
-        // Tag: {-} - Soft hyphen.
+        // Tag: {-}.
+        // Description: Will be replaced by an HTML soft hyphen (&shy;).
+        // Parameters: None.
         if (stripos($text, '{-}') !== false) {
             $replace['/\{-\}/i'] = '&shy;';
         }
 
-        // Tag: {details}{/details}.
-        // Tag: {details style1}{/details}.
-        // Tag: {summary}{/summary}.
+        // Tag: {langx xx}...{/langx}.
+        // Description: Tag text as being in a particular language.
+        // Parameters: None.
+        // Requires content between tags.
+        if (stripos($text, '{langx ') !== false) {
+            $replace['/\{langx\s+(.*)\}(.*)\{\/langx\}/isuU'] = '<span lang="$1">$2</span>';
+        }
+
+        // Tag: {note}...{/note}
+        // Description: Used to add notes that will appear when editing but not when displayed.
+        // Parameters: None.
+        // Requires content between tags.
+        if (stripos($text, '{note}') !== false) {
+            // Remove the note tags and its content.
+            $replace['/\{note\}(.*)\{\/note\}/isuU'] = '';
+        }
+
+        // Tag: {details open|cssClass}{summary}...{/summary}...{/details}.
+        // Description: Used to create collapsable sections of content. See HTML details/summary for usage.
+        // Optional Parameter: 'open' if you want the content to be expanded by default. Alternatively, you can specify a CSS class.
+        // Requires content between tags.
         if (stripos($text, '{/details}') !== false) {
             $replace['/\{details\}/i'] = '<details>';
             $replace['/\{details open\}/i'] = '<details open>';
@@ -2940,10 +3760,12 @@ class filter_filtercodes extends moodle_text_filter {
         // Conditional block tags.
 
         if (strpos($text, '{if') !== false) { // If there are conditional tags.
+            require_once($CFG->libdir . '/completionlib.php');
 
-            require_once($CFG->libdir.'/completionlib.php');
-
-            // Tag: {ifinactivity}.
+            // Tag: {ifinactivity}...{/ifinactivity}.
+            // Description: Will display content if the tag is in an activity.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{/ifinactivity}') !== false) {
                 if (substr($PAGE->pagetype, 0, 4) == 'mod-') {
                     $replace['/\{ifinactivity\}/isu'] = '';
@@ -2953,7 +3775,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifnotinactivity}.
+            // Tag: {ifnotinactivity}...{/ifnotinactivity}.
+            // Description: Will display content if the tag is not in an activity.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{/ifnotinactivity}') !== false) {
                 if (substr($PAGE->pagetype, 0, 4) != 'mod-') {
                     $replace['/\{ifnotinactivity\}/isu'] = '';
@@ -2963,23 +3788,29 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifactivitycompleted id}{/ifactivitycompleted}.
+            // Tag: {ifactivitycompleted coursemoduleid}...{/ifactivitycompleted}.
+            // Description: Will display content if the specified activity has been completed.
+            // Required Parameter: coursemoduleid is the id of the instance of the content module.
+            // Requires content between tags.
             if (stripos($text, '{/ifactivitycompleted}') !== false) {
-                $course = $PAGE->course;
-                $completion = new completion_info($course);
+                $completion = new completion_info($PAGE->course);
                 if ($completion->is_enabled_for_site() && $completion->is_enabled() == COMPLETION_ENABLED) {
-                    $activities = $completion->get_activities();
-
+                    // Get a list of the the instances of this tag.
                     $re = '/{ifactivitycompleted\s+([0-9]+)\}(.*)\{\/ifactivitycompleted\}/isuU';
                     $found = preg_match_all($re, $text, $matches);
                     if ($found > 0) {
-                        foreach ($matches[1] as $modid) {
-                            if (array_key_exists($modid, $activities)) {
-                                $mod = $completion->get_data($activities[$modid], true, $USER->id);
-                                $key = '/{ifactivitycompleted\s+' . $modid . '\}(.*)\{\/ifactivitycompleted\}/isuU';
-                                if ($mod->completionstate) { // Activity completed by user. Just remove the tags, keep content.
+                        // Check if the activity is in the list.
+                        foreach ($matches[1] as $cmid) {
+                            if (($cm = get_coursemodule_from_id('', $cmid, 0)) !== false) { // Only process valid IDs.
+                                // Get the completion data for this activity.
+                                $data = $completion->get_data($cm, true, $USER->id);
+                                // If the activity has been completed, remove just the tags. Otherwise remove tags and content.
+                                $key = '/{ifactivitycompleted\s+' . $cmid . '\}(.*)\{\/ifactivitycompleted\}/isuU';
+                                if ($data->completionstate == COMPLETION_COMPLETE) {
+                                    // Completed. Keep the text and remove the tags.
                                     $replace[$key] = "$1";
-                                } else { // Activity not completed. Remove tags and content.
+                                } else {
+                                    // Activity not completed. Remove tags and content.
                                     $replace[$key] = '';
                                 }
                             }
@@ -2988,24 +3819,30 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifnotactivitycompleted id}{/ifnotactivitycompleted}.
+            // Tag: {ifnotactivitycompleted coursemoduleid}...{/ifnotactivitycompleted}.
+            // Description: Will display content if the specified activity has been completed.
+            // Required Parameter: coursemoduleid is the id of the instance of the content module.
+            // Requires content between tags.
             if (stripos($text, '{/ifnotactivitycompleted}') !== false) {
-                $course = $PAGE->course;
-                $completion = new completion_info($course);
+                $completion = new completion_info($PAGE->course);
                 if ($completion->is_enabled_for_site() && $completion->is_enabled() == COMPLETION_ENABLED) {
-                    $activities = $completion->get_activities();
-
+                    // Get a list of the the instances of this tag.
                     $re = '/{ifnotactivitycompleted\s+([0-9]+)\}(.*)\{\/ifnotactivitycompleted\}/isuU';
                     $found = preg_match_all($re, $text, $matches);
                     if ($found > 0) {
-                        foreach ($matches[1] as $modid) {
-                            if (array_key_exists($modid, $activities)) {
-                                $mod = $completion->get_data($activities[$modid], true, $USER->id);
-                                $key = '/{ifnotactivitycompleted\s+' . $modid . '\}(.*)\{\/ifnotactivitycompleted\}/isuU';
-                                if ($mod->completionstate) { // Activity completed. Remove tags and content.
-                                    $replace[$key] = '';
-                                } else { // Activity NOT completed by user. Just remove the tags, keep content.
+                        // Check if the activity is in the list.
+                        foreach ($matches[1] as $cmid) {
+                            if (($cm = get_coursemodule_from_id('', $cmid, 0)) !== false) { // Only process valid IDs.
+                                // Get the completion data for this activity.
+                                $data = $completion->get_data($cm, true, $USER->id);
+                                // If the activity has been completed, remove just the tags. Otherwise remove tags and content.
+                                $key = '/{ifnotactivitycompleted\s+' . $cmid . '\}(.*)\{\/ifnotactivitycompleted\}/isuU';
+                                if ($data->completionstate != COMPLETION_COMPLETE) {
+                                    // Completed. Keep the text and remove the tags.
                                     $replace[$key] = "$1";
+                                } else {
+                                    // Activity not completed. Remove tags and content.
+                                    $replace[$key] = '';
                                 }
                             }
                         }
@@ -3013,14 +3850,14 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifprofile_field_...}.
-            // If Custom User Profile Fields is not empty.
+            // Tag: {ifprofile_field_shortname}...{ifprofile_field_shortname}.
+            // Description: Will display content if specified the Custom User Profile Fields is not empty.
+            // Required Parameter: Replace shortname with the shortname of the user profile field. Note that this is in both tags.
+            // Requires content between tags.
             if (stripos($text, '{ifprofile_field_') !== false) {
                 $isuser = (isloggedin() && !isguestuser());
 
                 // Cached the defined custom profile fields and data.
-                static $profilefields;
-                static $profiledata;
                 if (!isset($profilefields)) {
                     $profilefields = $DB->get_records('user_info_field', null, '', 'id, datatype, shortname, visible, param3');
                     if ($isuser && !empty($profilefields)) {
@@ -3056,7 +3893,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifmobile}.
+            // Tag: {ifmobile}...{/ifmobile}.
+            // Description: Will display content if accessed from the mobile app.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{/ifmobile}') !== false) {
                 // If this is a web service or the Moodle mobile app...
                 if ($this->iswebservice()) {
@@ -3069,7 +3909,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifnotmobile}.
+            // Tag: {ifnotmobile}...{/ifnotmobile}.
+            // Description: Will display content if NOT accessed from the mobile app.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{/ifnotmobile}') !== false) {
                 // If this is a web service or the Moodle mobile app...
                 if (!$this->iswebservice()) {
@@ -3082,7 +3925,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifloggedinas}.
+            // Tag: {ifloggedinas}...{/ifloggedinas}.
+            // Description: Will display content if logged in as a different user. See https://docs.moodle.org/en/Log_in_as.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifloggedinas}') !== false) {
                 // If logged-in-as another user...
                 if (\core\session\manager::is_loggedinas()) {
@@ -3095,7 +3941,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifnotloggedinas}.
+            // Tag: {ifnotloggedinas}...{/ifnotloggedinas}.
+            // Description: Will display content if NOT logged in as a different user. See https://docs.moodle.org/en/Log_in_as.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifnotloggedinas}') !== false) {
                 // If not logged-in-as another user...
                 if (!\core\session\manager::is_loggedinas()) {
@@ -3108,7 +3957,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifvisible}.
+            // Tag: {ifvisible}...{/ifvisible}.
+            // Description: Will display content if the current course visibility is set to 'Show'.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifvisible}') !== false) {
                 global $COURSE;
                 // If the course visibility is set to Show...
@@ -3122,7 +3974,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifnotvisible}.
+            // Tag: {ifnotvisible}...{/ifnotvisible}.
+            // Description: Will display content if the current course visibility is set to 'Hide'.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifnotvisible}') !== false) {
                 global $COURSE;
                 // If the course visibility is set to hide...
@@ -3136,30 +3991,37 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifincohort idname|idnumber}.
+            // Tag: {ifincohort idname|idnumber}...{/ifincohort}.
+            // Description: Will display content if the user is part of the specified cohort.
+            // Parameters: id name or id number of the cohort.
+            // Requires content between tags.
             if (stripos($text, '{ifincohort ') !== false) {
                 static $mycohorts;
                 if (empty($mycohorts)) { // Cache list of cohorts.
-                    require_once($CFG->dirroot.'/cohort/lib.php');
+                    require_once($CFG->dirroot . '/cohort/lib.php');
                     $mycohorts = cohort_get_user_cohorts($USER->id);
                 }
-                $newtext = preg_replace_callback('/\{ifincohort ([\w\-]*)\}(.*)\{\/ifincohort\}/isuU',
-                    function ($matches) use($mycohorts) {
+                $newtext = preg_replace_callback(
+                    '/\{ifincohort ([\w\-]*)\}(.*)\{\/ifincohort\}/isuU',
+                    function ($matches) use ($mycohorts) {
                         foreach ($mycohorts as $cohort) {
                             if ($cohort->idnumber == $matches[1] || $cohort->id == $matches[1]) {
                                 return ($matches[2]);
                             };
                         }
                         return '';
-                    }, $text
+                    },
+                    $text
                 );
                 if ($newtext !== false) {
                     $text = $newtext;
-                    $changed = true;
                 }
             }
 
-            // Tag: {ifeditmode}.
+            // Tag: {ifeditmode}...{/ifeditmode}.
+            // Description: Will display content if edit mode is turned on.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifeditmode}') !== false) {
                 // If editing mode is activated...
                 if ($PAGE->user_is_editing()) {
@@ -3172,7 +4034,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifnoteditmode}.
+            // Tag: {ifnoteditmode}...{/ifnoteditmode}.
+            // Description: Will display content if edit mode is turned off.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifnoteditmode}') !== false) {
                 // If editing mode is activated...
                 if ($PAGE->user_is_editing()) {
@@ -3185,7 +4050,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifcourserequests}.
+            // Tag: {ifcourserequests}...{/ifcourserequests}.
+            // Description: Will display content if the 'Request a course' feature is enabled.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifcourserequests}') !== false) {
                 // If Request a course is enabled...
                 $context = context_system::instance();
@@ -3199,7 +4067,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tags: {ifenrolpage}.
+            // Tags: {ifenrolpage}...{/ifenrolpage}.
+            // Description: Will display content if you are viewing the enrolment page of a course.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifenrolpage}') !== false) {
                 // If on a course enrolment page.
                 if ($PAGE->pagetype == 'enrol-index') {
@@ -3212,7 +4083,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tags: {ifnotenrolpage}.
+            // Tags: {ifnotenrolpage}...{/ifnotenrolpage}.
+            // Description: Will display content if you are not viewing the enrolment page of a course.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifnotenrolpage}') !== false) {
                 // If on a course enrolment page.
                 if ($PAGE->pagetype == 'enrol-index') {
@@ -3225,9 +4099,31 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tags: {ifenrolled} and {ifnotenrolled}.
-            // Tags: {ifincourse} and {ifnotincourse}
-            // Tags: {ifinsection}.
+            // Tag: {ifenrolled}..{/ifenrolled}.
+            // Description: Will display content if you are enrolled in the current course.
+            // Parameters: None.
+            // Requires content between tags.
+
+            // Tag: {ifnotenrolled}...{/ifnotenrolled}.
+            // Description: Will display content if you are not enrolled in the current course.
+            // Parameters: None.
+            // Requires content between tags.
+
+            // Tag: {ifincourse}...{/ifincourse}.
+            // Description: Will display content if you are anywhere in a course.
+            // Parameters: None.
+            // Requires content between tags.
+
+            // Tag: {ifnotincourse}...{/ifnotincourse}.
+            // Description: Will display content if you are not anywhere in a course.
+            // Parameters: None.
+            // Requires content between tags.
+
+            // Tag: {ifinsection}...{/ifinsection}.
+            // Description: Will display content if you are in a section of a course.
+            // Parameters: None.
+            // Requires content between tags.
+
             if ($PAGE->course->id == $SITE->id) { // If frontpage course.
                 // Everyone is automatically enrolled in the Front Page course.
                 // Remove the ifenrolled tags.
@@ -3278,12 +4174,12 @@ class filter_filtercodes extends moodle_text_filter {
                         $replace['/\{\/ifnotenrolled\}/i'] = '';
                     }
                 }
-                // Tag: {ifincourse}. If in a course other than the Front Page, remove the ifincourse tags.
+                // Tag: {ifincourse}...{/ifincourse}. // phpcs:ignore .
                 if (stripos($text, '{ifincourse}') !== false) {
                     $replace['/\{ifincourse\}/i'] = '';
                     $replace['/\{\/ifincourse\}/i'] = '';
                 }
-                // Tag: {ifinsection}. If in a section of a course other than the Front Page, remove the ifinsection tags.
+                // Tag: {ifinsection}...{/ifinsection}. // phpcs:ignore .
                 if (stripos($text, '{ifinsection}') !== false) {
                     if (!empty(@$PAGE->cm->sectionnum)) {
                         $replace['/\{ifinsection\}/i'] = '';
@@ -3296,7 +4192,11 @@ class filter_filtercodes extends moodle_text_filter {
                     }
                 }
             }
-            // Tag: {ifnotinsection}. If not in a section of a course.
+
+            // Tag: {ifnotinsection}...{/ifnotinsection}.
+            // Description: Display content if not in a section of a course.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifnotinsection}') !== false) {
                 if (empty(@$PAGE->cm->sectionnum)) {
                     $replace['/\{ifnotinsection\}/i'] = '';
@@ -3309,9 +4209,12 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifstudent}. This is similar to {ifenrolled} but only displays if user is enrolled
-            // but must be logged-in and must not have additional higher level roles.
+            // Tag: {ifstudent}...{/ifstudent}.
+            // Description: This is similar to {ifenrolled} but only displays if user is enrolled as just a student in the course.
+            // Must be logged-in and must not have additional higher level roles.
             // Example: Student but not Administrator, or Student but not Teacher.
+            // Parameters: None.
+            // Requires content between tags.
             if ($this->hasonlyarchetype('student')) {
                 if (stripos($text, '{ifstudent}') !== false) {
                     // Just remove the tags.
@@ -3325,7 +4228,33 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // These tags: {ifloggedin} and {ifloggedout}.
+            // Tag: {ifminstudent}...{/ifminstudent}.
+            // Description: This is similar to {ifstudent} but will displays if user's list of roles includes student.
+            // Example: Student but may also be teacher or administrator.
+            // Parameters: None.
+            // Requires content between tags.
+            if (stripos($text, '{ifminstudent}') !== false) {
+                // If an assistant (non-editing teacher).
+                if ($this->hasarchetype('student')) {
+                    // Just remove the tags.
+                    $replace['/\{ifminstudent\}/i'] = '';
+                    $replace['/\{\/ifminstudent\}/i'] = '';
+                } else {
+                    // Remove the ifassistant strings.
+                    $replace['/\{ifminstudent\}(.*)\{\/ifminstudent\}/isuU'] = '';
+                }
+            }
+
+            // Tag: {ifloggedin}...{/ifloggedin}
+            // Description: Display content if logged-in but not if logged-in as guest.
+            // Parameters: None.
+            // Requires content between tags.
+
+            // Tag: {ifloggedout}...{/ifloggedout}.
+            // Description: Display content if NOT logged-in. Guest is not considered logged in.
+            // Parameters: None.
+            // Requires content between tags.
+
             if (isloggedin() && !isguestuser()) { // If logged-in but not just as guest.
                 // Just remove ifloggedin tags.
                 if (stripos($text, '{ifloggedin}') !== false) {
@@ -3348,7 +4277,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifguest}.
+            // Tag: {ifguest}...{/ifguest}.
+            // Description: Display content if logged-in as a guest user.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifguest}') !== false) {
                 if (isguestuser()) { // If logged-in as guest.
                     // Just remove the tags.
@@ -3360,7 +4292,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifassistant}.
+            // Tag: {ifassistant}...{/ifassistant}.
+            // Description: Display content if a non-editing teacher in the course.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifassistant}') !== false) {
                 // If an assistant (non-editing teacher).
                 if ($this->hasarchetype('teacher') && stripos($text, '{ifassistant}') !== false) {
@@ -3373,7 +4308,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifteacher}.
+            // Tag: {ifteacher}...{/ifteacher}.
+            // Description: Display content if an editing teacher in the course.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifteacher}') !== false) {
                 if ($this->hasarchetype('editingteacher')) { // If a teacher.
                     // Just remove the tags.
@@ -3385,7 +4323,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifcreator}.
+            // Tag: {ifcreator}...{/ifcreator}.
+            // Description: Display content if the user has the role of course creator.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifcreator}') !== false) {
                 if ($this->hasarchetype('coursecreator')) { // If a course creator.
                     // Just remove the tags.
@@ -3397,7 +4338,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifmanager}.
+            // Tag: {ifmanager}...{/ifmanager}.
+            // Description: Display content if the user has the role of a manager.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifmanager}') !== false) {
                 if ($this->hasarchetype('manager')) { // If a manager.
                     // Just remove the tags.
@@ -3409,7 +4353,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifadmin}.
+            // Tag: {ifadmin}...{/ifadmin}.
+            // Description: Display content if the user is a site administrator.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifadmin}') !== false) {
                 if (is_siteadmin() && !is_role_switched($PAGE->course->id)) { // If an administrator.
                     // Just remove the tags.
@@ -3421,7 +4368,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifdashboard}.
+            // Tag: {ifdashboard}...{/ifdashboard}.
+            // Description: Display content if the user is viewing the dashboard.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifdashboard}') !== false) {
                 if ($PAGE->pagetype == 'my-index') { // If dashboard.
                     // Just remove the tags.
@@ -3433,7 +4383,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifhome}.
+            // Tag: {ifhome}...{/ifhome}.
+            // Description: Display content if the user is viewing the Front page.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifhome}') !== false) {
                 if ($PAGE->pagetype == 'site-index') { // If front page.
                     // Just remove the tags.
@@ -3444,7 +4397,10 @@ class filter_filtercodes extends moodle_text_filter {
                     $replace['/\{ifhome\}(.*)\{\/ifhome\}/isuU'] = '';
                 }
             }
-            // Tag: {ifnothome}.
+            // Tag: {ifnothome}...{/ifnothome}.
+            // Description: Display content if the user is not viewing any other page than the Front page.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifnothome}') !== false) {
                 if ($PAGE->pagetype != 'site-index') { // If front page.
                     // Just remove the tags.
@@ -3456,7 +4412,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifdev}.
+            // Tag: {ifdev}...{/ifdev}.
+            // Description: Display content if the user is a site admnistrator and has debugging set to DEVELOPER mode.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifdev}') !== false) {
                 // If an administrator with debugging is set to DEVELOPER mode...
                 if ($CFG->debugdisplay == 1 && is_siteadmin() && !is_role_switched($PAGE->course->id)) {
@@ -3469,9 +4428,11 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifingroup id|idnumber}.
+            // Tag: {ifingroup id|idnumber}...{/ifingroup}.
+            // Description: Display content if the user is a member of the specified group.
+            // Required Parameters: group id or idnumber.
+            // Requires content between tags.
             if (stripos($text, '{ifingroup') !== false) {
-                static $mygroupslist;
                 if (!isset($mygroupslist)) { // Fetch my groups.
                     $mygroupslist = groups_get_all_groups($PAGE->course->id, $USER->id);
                 }
@@ -3496,9 +4457,11 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifnotingroup id|idnumber}.
+            // Tag: {ifnotingroup id|idnumber}...{/ifnotingroup}.
+            // Description: Display content if the user is NOT a member of the specified group.
+            // Required Parameters: group id or idnumber.
+            // Requires content between tags.
             if (stripos($text, '{ifnotingroup') !== false) {
-                static $mygroupslist;
                 if (!isset($mygroupslist)) { // Fetch my groups.
                     $mygroupslist = groups_get_all_groups($PAGE->course->id, $USER->id);
                 }
@@ -3523,7 +4486,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {iftenant idnumber|tenantid}. Only for Moodle Workplace.
+            // Tag: {iftenant idnumber|tenantid}...{/iftenant}.
+            // Description: Display content only if the user is part of the specified tenant on Moodle Workplace.
+            // Required Parameter: tenant idnumber or tenantid.
+            // Requires content between tags.
             if (stripos($text, '{iftenant') !== false) {
                 if (class_exists('tool_tenant\tenancy')) {
                     // Moodle Workplace.
@@ -3561,7 +4527,10 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifworkplace}. Only for Moodle Workplace.
+            // Tag: {ifworkplace}...{/ifworkplace}.
+            // Description: Display content only if using Moodle Workplace.
+            // Parameters: None.
+            // Requires content between tags.
             if (stripos($text, '{ifworkplace}') !== false) {
                 if (class_exists('tool_tenant\tenancy')) {
                     // Moodle Workplace - Just remove the tags.
@@ -3573,45 +4542,94 @@ class filter_filtercodes extends moodle_text_filter {
                 }
             }
 
-            // Tag: {ifcustomrole rolename}.
+            // Tag: {ifcustomrole shortrolename}...{/ifcustomrole}.
+            // Description: Display content only if user has the role specified by shortrolename in the current context.
+            // Parameters: Short role name.
+            // Requires content between tags.
             if (stripos($text, '{ifcustomrole') !== false) {
                 $re = '/{ifcustomrole\s+(.*)\}(.*)\{\/ifcustomrole\}/isuU';
                 $found = preg_match_all($re, $text, $matches);
                 if ($found > 0) {
+                    $context = $PAGE->context;
+                    if ($context->contextlevel == CONTEXT_COURSE) {
+                        // We are in a course.
+                        $context = context_course::instance($context->instanceid);
+                    } else if ($context->contextlevel == CONTEXT_MODULE) {
+                        // We are in an activity.
+                        $cm = get_coursemodule_from_id('', $context->instanceid, 0, false, MUST_EXIST);
+                        $context = context_module::instance($cm->id);
+                        unset($cm);
+                    }
+
+                    // Get roles within this context.
+                    $roles = get_user_roles($context, $USER->id, true);
+                    $roles = array_column($roles, 'shortname');
+                    unset($context);
+
+                    // Replace all instances of a given ifcustomrole tag.
                     foreach ($matches[1] as $roleshortname) {
                         $key = '/{ifcustomrole\s+' . $roleshortname . '\}(.*)\{\/ifcustomrole\}/isuU';
-                        $contextid = ($PAGE->course->id == SITEID) ? 0 : context_course::instance($PAGE->course->id)->id;
-                        if ($this->hascustomrole($roleshortname, $contextid)) {
+                        // We have a role that matches this tag.
+                        if (in_array($roleshortname, $roles)) {
                             // Just remove the tags.
                             $replace[$key] = '$1';
                         } else {
-                            // Remove the ifcustomrole strings.
+                            // Otherwise, remove the ifcustomrole tags and the string inside it.
                             $replace[$key] = '';
                         }
+                        unset($key);
                     }
                 }
+                unset($re);
+                unset($found);
             }
 
-            // Tag: {ifnotcustomrole rolename}.
+            // Tag: {ifnotcustomrole shortrolename}...{/ifnotcustomrole}.
+            // Description: Display content only if user does NOT have the role specified by shortrolename in the current context.
+            // Required Parameters: Short role name.
+            // Requires content between tags.
             if (stripos($text, '{ifnotcustomrole') !== false) {
                 $re = '/{ifnotcustomrole\s+(.*)\}(.*)\{\/ifnotcustomrole\}/isuU';
                 $found = preg_match_all($re, $text, $matches);
                 if ($found > 0) {
+                    $context = $PAGE->context;
+                    if ($context->contextlevel == CONTEXT_COURSE) {
+                        // We are in a course.
+                        $context = context_course::instance($context->instanceid);
+                    } else if ($context->contextlevel == CONTEXT_MODULE) {
+                        // We are in an activity.
+                        $cm = get_coursemodule_from_id('', $context->instanceid, 0, false, MUST_EXIST);
+                        $context = context_module::instance($cm->id);
+                        unset($cm);
+                    }
+
+                    // Get roles within this context.
+                    $roles = get_user_roles($context, $USER->id, true);
+                    $roles = array_column($roles, 'shortname');
+                    unset($context);
+
+                    // Replace all instances of a given ifnotcustomrole tag.
                     foreach ($matches[1] as $roleshortname) {
                         $key = '/{ifnotcustomrole\s+' . $roleshortname . '\}(.*)\{\/ifnotcustomrole\}/isuU';
-                        $contextid = ($PAGE->course->id == SITEID) ? 0 : context_course::instance($PAGE->course->id)->id;
-                        if (!$this->hascustomrole($roleshortname, $contextid)) {
+                        // We do not have a role that matches this tag.
+                        if (!in_array($roleshortname, $roles)) {
                             // Just remove the tags.
                             $replace[$key] = '$1';
                         } else {
-                            // Remove the ifnotcustomrole strings.
+                            // Otherwise, remove the ifnotcustomrole strings.
                             $replace[$key] = '';
                         }
+                        unset($key);
                     }
                 }
+                unset($re);
+                unset($found);
             }
 
-            // Tag: {ifhasarolename roleshortname}{/ifhasarolename}.
+            // Tag: {ifhasarolename roleshortname}...{/ifhasarolename}.
+            // Description: Display content only if user has the role specified by shortrolename ANYWHERE on the site.
+            // Parameters: Short role name.
+            // Requires content between tags.
             if (stripos($text, '{ifhasarolename') !== false) {
                 $re = '/{ifhasarolename\s+(.*)\}(.*)\{\/ifhasarolename\}/isuU';
                 $found = preg_match_all($re, $text, $matches);
@@ -3630,8 +4648,10 @@ class filter_filtercodes extends moodle_text_filter {
             }
 
             if (strpos($text, '{ifmin') !== false) { // If there are conditional ifmin tags.
-
-                // Tag: {ifminassistant}.
+                // Tag: {ifminassistant}...{/ifminassistant}.
+                // Description: Display content only if user has the role of a non-editing teacher or higher.
+                // Parameters: None.
+                // Requires content between tags.
                 if (stripos($text, '{ifminassistant}') !== false) {
                     // If an assistant (non-editing teacher) or above.
                     if ($this->hasminarchetype('teacher') && stripos($text, '{ifminassistant}') !== false) {
@@ -3644,7 +4664,10 @@ class filter_filtercodes extends moodle_text_filter {
                     }
                 }
 
-                // Tag: {ifminteacher}.
+                // Tag: {ifminteacher}...{/ifminteacher}.
+                // Description: Display content only if user has the role of a editing teacher or higher.
+                // Parameters: None.
+                // Requires content between tags.
                 if (stripos($text, '{ifminteacher}') !== false) {
                     if ($this->hasminarchetype('editingteacher')) { // If a teacher or above.
                         // Just remove the tags.
@@ -3656,7 +4679,10 @@ class filter_filtercodes extends moodle_text_filter {
                     }
                 }
 
-                // Tag: {ifmincreator}.
+                // Tag: {ifmincreator}...{/ifmincreator}.
+                // Description: Display content only if user has the role of a course creator or higher.
+                // Parameters: None.
+                // Requires content between tags.
                 if (stripos($text, '{ifmincreator}') !== false) {
                     if ($this->hasminarchetype('coursecreator')) { // If a course creator or above.
                         // Just remove the tags.
@@ -3668,7 +4694,10 @@ class filter_filtercodes extends moodle_text_filter {
                     }
                 }
 
-                // Tag: {ifminmanager}.
+                // Tag: {ifminmanager}...{/ifminmanager}.
+                // Description: Display content only if user has the role of a manager or higher.
+                // Parameters: None.
+                // Requires content between tags.
                 if (stripos($text, '{ifminmanager}') !== false) {
                     if ($this->hasminarchetype('manager')) { // If a manager or above.
                         // Just remove the tags.
@@ -3680,7 +4709,10 @@ class filter_filtercodes extends moodle_text_filter {
                     }
                 }
 
-                // Tag: {ifminsitemanager}.
+                // Tag: {ifminsitemanager}...{/ifminsitemanager}.
+                // Description: Display content if user has the role of a site manager (not just course/category manager) or admin.
+                // Parameters: None.
+                // Requires content between tags.
                 if (stripos($text, '{ifminsitemanager}') !== false) {
                     static $issitemanager;
                     // If a manager or above.
@@ -3703,38 +4735,35 @@ class filter_filtercodes extends moodle_text_filter {
                         $replace['/\{ifminsitemanager\}(.*)\{\/ifminsitemanager\}/isuU'] = '';
                     }
                 }
-
             }
         }
 
-        // Tag: {filtercodes}. Show version of FilterCodes, but only if you have permission to add the tag.
+        // Tag: {filtercodes}.
+        // Description: Show version of FilterCodes, but only if you have permission to add the tag.
+        // Parameters: None.
         if (stripos($text, '{filtercodes}') !== false) {
             // If you have the ability to edit the content.
             if (has_capability('moodle/course:update', $PAGE->context)) {
                 // Show the version of the FilterCodes plugin.
-                $plugin = new stdClass();
-                require($CFG->dirroot . '/filter/filtercodes/version.php');
-                $replace['/\{filtercodes\}/i'] = "$plugin->release ($plugin->version)";
-            } else {
-                $replace['/\{filtercodes\}/i'] = '';
+                $fcode ="{filtercodes}";
+                if (!restricttag($fcode)){
+                    $plugin = new stdClass();
+                    require($CFG->dirroot . '/filter/filtercodes/version.php');
+                    $replace['/\{filtercodes\}/i'] = "$plugin->release ($plugin->version)";
+                }else {
+                    $replace['/\{filtercodes\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                    <strong>{filtercodes}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
+               
+                }
+               
+           } else {
+              $replace['/\{filtercodes\}/i'] = '';
             }
         }
 
-        //
-        // Apply all of the filtercodes at once.
-        //
-
-        $newtext = null;
-        if (count($replace) > 0) {
-            $newtext = preg_replace(array_keys($replace), array_values($replace), $text);
-            $replace = [];
-        }
-        if (!is_null($newtext)) {
-            $text = $newtext;
-            $changed = true;
-        }
-
-        // Tag: {chart <type> <value> <title>} - Easily display a chart in one of several styles.
+        // Tag: {chart <type> <value> <title>}
+        // Description: Easily display a chart in one of several styles.
+        // Required Parameters: type=radial|pie|progressbar|progresspie, value=0-100, title=Title of the chart.
         if ($CFG->branch >= 32 && version_compare(PHP_VERSION, '7.0.0') >= 0 && stripos($text, '{chart ') !== false) {
             global $OUTPUT;
             preg_match_all('/\{chart\s(\w+)\s([0-9]+)((?:\s)(.*))?\}/isuU', $text, $matches, PREG_SET_ORDER);
@@ -3745,7 +4774,7 @@ class filter_filtercodes extends moodle_text_filter {
                 $match[3] = $match[3] == null ? '' : $match[3];
                 $title = trim($match[3]); // Optional text label.
                 $percent = get_string('percents', '', $value);
-                switch($type) { // Type of chart.
+                switch ($type) { // Type of chart.
                     case 'radial': // Tag: {chart radial 99 Label to be displayed} - Display a radial (circle) chart.
                         $chart = new \core\chart_pie();
                         $chart->set_doughnut(true); // Calling set_doughnut(true) we display the chart as a doughnut.
@@ -3782,8 +4811,11 @@ class filter_filtercodes extends moodle_text_filter {
                             </div>
                         </div>';
                         if (!empty($title)) {
-                            $html .= '<div class="small">' . get_string('chartprogressbarlabel', 'filter_filtercodes',
-                                    ['label' => $title, 'value' => $percent]) . '</div>';
+                            $html .= '<div class="small">' . get_string(
+                                'chartprogressbarlabel',
+                                'filter_filtercodes',
+                                ['label' => $title, 'value' => $percent]
+                            ) . '</div>';
                         }
                         break;
                     case 'progresspie': // Tag: {chart progresspie 99 Label to display} - Display a progress pie.
@@ -3809,73 +4841,101 @@ class filter_filtercodes extends moodle_text_filter {
                 $newtext = preg_replace(array_keys($replace), array_values($replace), $text);
                 if (!is_null($newtext)) {
                     $text = $newtext;
-                    $changed = true;
                 }
             }
             unset($chart, $matches, $html, $value, $title);
         }
 
-        // Tag: {urlencode}content{/urlencode}.
+        // Tag: {urlencode}...{/urlencode}.
+        // Description: URL Encodes the content between the tags for use as a parameter of a URL.
+        // Parameters: None.
+        // Requires content between tags.
         if (stripos($text, '{urlencode}') !== false) {
-            // Replace {urlencode} tags and content with encoded content.
-            $newtext = preg_replace_callback('/\{urlencode\}(.*)\{\/urlencode\}/isuU',
-                function($matches) {
-                    return urlencode($matches[1]);
-                }, $text);
-            if ($newtext !== false) {
-                $text = $newtext;
-                $changed = true;
+            $uricode ="{urlencode}";
+            if (!restricttag($uricode)){
+                // Replace {urlencode} tags and content with encoded content.
+                    $newtext = preg_replace_callback('/\{urlencode\}(.*)\{\/urlencode\}/isuU',
+                    function($matches) {
+                        return urlencode($matches[1]);
+                    }, $text);
+                    if ($newtext !== false) {
+                        $text = $newtext;
+                    }
+            }else {
+                $replace['/\{urlencode\}/i'] = "<div class=\"alert alert-warning fc-warning\">
+                <strong>{urlencode}</strong> <i class=\"icon fa fa-exclamation-circle text-warning fa-fw \" title=\"".get_string('notenabled', 'filter_filtercodes')."\" role=\"img\" aria-label=\"".get_string('notenabled', 'filter_filtercodes')."\"></i> ".get_string('tagnotenabled', 'filter_filtercodes')."</div>";
+           
             }
         }
 
-        // Tag: {qrcode}{/qrcode}.
+        // Tag: {qrcode}...{/qrcode}.
+        // Description: Encodes the content between the tags into a an HTML image tag containing a QR Code of the content.
+        // Parameters: None.
+        // Requires content between tags.
         if (stripos($text, '{qrcode}') !== false) {
             // Remove {qrcode}{/qrcode} tags and turn content between the tags into a QR code.
-            $newtext = preg_replace_callback('/\{qrcode\}(.*)\{\/qrcode\}/isuU',
-                function($matches) {
+            $newtext = preg_replace_callback(
+                '/\{qrcode\}(.*)\{\/qrcode\}/isuU',
+                function ($matches) {
                     $text = html_to_text($matches[1]);
                     $src = $this->qrcode($text);
                     $src = '<img src="' . $src . '" style="width:100%;max-width:480px;height:auto;" class="fc-qrcode" alt="'
                             . $text . '">';
                     return $src;
-                }, $text);
+                },
+                $text
+            );
             if ($newtext !== false) {
                 $text = $newtext;
-                $changed = true;
             }
         }
 
-        // Tag: {alert}{/alert}.
+        // Tag: {alert stylename}...{/alert}.
+        // Description: Wraps content between the tags into a Bootstrap Alert box.
+        // Optional Parameters: Stylenames: primary|secondary|success|danger|warning|info|light|dark. Default is 'warning'.
+        // Requires content between tags.
+        // Note: Support of styles is theme dependant. Not all themes support these styles and some will support other styles.
         if (stripos($text, '{/alert}') !== false) {
-            $newtext = preg_replace_callback('/\{alert(\s\w*)?\}(.*)\{\/alert\}/isuU',
-            function($matches) {
-                // If alert <style> parameter is not included, default to alert-warning.
-                $matches[1] = trim($matches[1]);
-                $matches[1] = empty($matches[1]) ? 'warning' : $matches[1];
-                return '<div class="alert alert-' . $matches[1] . '" role="alert"><p>' . $matches[2] . '</p></div>';
-            }, $text);
+            $newtext = preg_replace_callback(
+                '/\{alert(\s\w*)?\}(.*)\{\/alert\}/isuU',
+                function ($matches) {
+                    // If alert <style> parameter is not included, default to alert-warning.
+                    $matches[1] = trim($matches[1]);
+                    $matches[1] = empty($matches[1]) ? 'warning' : $matches[1];
+                    return '<div class="alert alert-' . $matches[1] . '" role="alert"><p>' . $matches[2] . '</p></div>';
+                },
+                $text
+            );
             if ($newtext !== false) {
                 $text = $newtext;
-                $changed = true;
             }
         }
 
-        // Tag: {label}{/label}.
+        // Tag: {label stylename}{/label}.
+        // Description: Wraps content between the tags into a Bootstrap inline label box.
+        // Optional Parameters: Style names: default|primary|success|info|danger|warning. Default is 'info'.
+        // Requires content between tags.
+        // Note: Support of styles is theme dependant. Not all themes support these styles and some will support other styles.
         if (stripos($text, '{/label}') !== false) {
-            $newtext = preg_replace_callback('/\{label(\s\w*)?\}(.*)\{\/label\}/isuU',
-            function($matches) {
-                // If alert <style> parameter is not included, default to alert-info.
-                $matches[1] = trim($matches[1]);
-                $matches[1] = empty($matches[1]) ? 'info' : $matches[1];
-                return '<span class="label label-' . $matches[1] . '">' . $matches[2] . '</span>';
-            }, $text);
+            $newtext = preg_replace_callback(
+                '/\{label(\s\w*)?\}(.*)\{\/label\}/isuU',
+                function ($matches) {
+                    // If alert <style> parameter is not included, default to alert-info.
+                    $matches[1] = trim($matches[1]);
+                    $matches[1] = empty($matches[1]) ? 'info' : $matches[1];
+                    return '<span class="label label-' . $matches[1] . '">' . $matches[2] . '</span>';
+                },
+                $text
+            );
             if ($newtext !== false) {
                 $text = $newtext;
-                $changed = true;
             }
         }
 
-        // Tag: {help}{/help}.
+        // Tag: {help}...{/help}.
+        // Description: Creates a Moodle (?) icon that displays a help bubble when clicked.
+        // Requires content between tags.
+        // Parameters: None.
         if (stripos($text, '{/help}') !== false) {
             static $help;
             static $helpwrapper = [];
@@ -3886,17 +4946,22 @@ class filter_filtercodes extends moodle_text_filter {
                 $helpwrapper[1] = '</p></div>" data-html="true" tabindex="0" data-trigger="focus"><i class="icon'
                         . ' fa fa-question-circle text-info fa-fw " title="' . $help . '" aria-label="' . $help . '"></i></a>';
             }
-            $newtext = preg_replace_callback('/\{help\}(.*)\{\/help\}/isuU',
-                function($matches) use($helpwrapper) {
-                    return $helpwrapper[0] . htmlspecialchars($matches[1]) . $helpwrapper[1];
-                }, $text);
+            $newtext = preg_replace_callback(
+                '/\{help\}(.*)\{\/help\}/isuU',
+                function ($matches) use ($helpwrapper) {
+                    return $helpwrapper[0] . htmlspecialchars($matches[1], ENT_COMPAT) . $helpwrapper[1];
+                },
+                $text
+            );
             if ($newtext !== false) {
                 $text = $newtext;
-                $changed = true;
             }
         }
 
-        // Tag: {info}{/info}.
+        // Tag: {info}...{/info}.
+        // Description: Creates a Moodle (!) icon that displays an information bubble when clicked.
+        // Parameters: None.
+        // Requires content between tags.
         if (stripos($text, '{/info}') !== false) {
             static $info;
             static $infowrapper = [];
@@ -3907,29 +4972,69 @@ class filter_filtercodes extends moodle_text_filter {
                 $infowrapper[1] = '</p></div>" data-html="true" tabindex="0" data-trigger="focus"><i class="icon'
                         . ' fa fa-info-circle text-info fa-fw " title="' . $info . '" aria-label="' . $info . '"></i></a>';
             }
-            $newtext = preg_replace_callback('/\{info\}(.*)\{\/info\}/isuU',
-                function($matches) use($infowrapper) {
-                    return $infowrapper[0] . htmlspecialchars($matches[1]) . $infowrapper[1];
-                }, $text);
+            $newtext = preg_replace_callback(
+                '/\{info\}(.*)\{\/info\}/isuU',
+                function ($matches) use ($infowrapper) {
+                    return $infowrapper[0] . htmlspecialchars($matches[1], ENT_COMPAT) . $infowrapper[1];
+                },
+                $text
+            );
             if ($newtext !== false) {
                 $text = $newtext;
-                $changed = true;
             }
         }
 
-        // Handle escaped tags.
+        /* ---------------- Apply all of the filtercodes so far. ---------------*/
 
-        // Complete the process of replacing escaped tags with single braces.
-        if ($escapedtags) {
-            $text = str_replace(chr(2), '{', $text);
-            $text = str_replace(chr(3), '}', $text);
+        if ($this->replacetags($text, $replace) == false) {
+            // Go no further if there are no more tags.
+            return $text;
         }
-        // Complete the process of replacing escaped tags with single escaped braces.
-        if ($escapedtagsenc) {
-            $text = str_replace(chr(4), '%7B', $text);
-            $text = str_replace(chr(5), '%7D', $text);
+
+        // Tag: {button URL}...{/button}.
+        // Description: Creates a button that displays the content and links to the specified URL.
+        // Required Parameter: URL. You also need to specify the content which will become the text in the button.
+        // Requires content between tags.
+        if (stripos($text, '{button ') !== false) {
+            $newtext = preg_replace_callback(
+                '/\{button\s+(.*)\}(.*)\{\/button\}/isuU',
+                function ($matches) {
+                    // Remove HTML tags created by filters like Activity Name Auto-Linking and Convert URLs Into Links.
+                    $url = strip_tags($matches[1]);
+                    $label = $matches[2];
+                    return '<a href="' . $url . '" class="btn btn-primary">' . $label . '</a>';
+                },
+                $text
+            );
+            if ($newtext !== false) {
+                $text = $newtext;
+            }
         }
+
+        /* ---------------- Apply the rest of the FilterCodes tags. ---------------*/
+
+        $this->replacetags($text, $replace);
 
         return $text;
     }
+    
+}
+
+function restricttag($text) {
+ 
+    $restricted = get_config('filter_filtercodes', 'restrictedtags');
+    $cleanstr = preg_replace("/,/", " ", $restricted);
+   //print_r($restricted);
+    $result = explode(' ',$cleanstr);
+
+            foreach ($result as  $x => $restval) {
+              
+                if ($restval == $text) {
+                        return true;
+                }
+
+            }
+            
+    return false;
+
 }

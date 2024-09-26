@@ -1,5 +1,5 @@
 <?php
-// This file is part of FilterCodes for Moodle - http://moodle.org/
+// This file is part of FilterCodes for Moodle - https://moodle.org/
 //
 // FilterCodes is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * English strings for FilterCodes plugin.
@@ -20,7 +20,7 @@
  * @package    filter_filtercodes
  * @copyright  2017-2023 TNG Consulting Inc. - www.tngconsulting.ca
  * @author     Michael Milette
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -51,7 +51,7 @@ $string['coursecontactshowpic_desc'] = 'If enabled, will display the contact\'s 
 $string['coursecontactshowdesc'] = 'Show contact\'s profile description.';
 $string['coursecontactshowdesc_desc'] = 'If enabled, will display the contact\'s profile description in {coursecontacts} tags.';
 $string['coursecontactlinktype'] = 'Contact link type';
-$string['coursecontactlinktype_desc'] = 'Choose the type of link for the contact\s link in the {coursecontacts} tags.';
+$string['coursecontactlinktype_desc'] = 'Choose the type of link for the contact\'s link in the {coursecontacts} tags.';
 $string['showhiddenprofilefields'] = 'Show hidden profile fields';
 $string['showhiddenprofilefields_desc'] = 'Enable the {profile_field_...} tag to process all profile fields including ones hidden from the user.';
 $string['ifprofilefiedonlyvisible'] = '{ifprofile_field_} only visible.';
@@ -76,6 +76,58 @@ $string['teamcardsformat_desc'] = 'Choose how the team members will appear in th
 <li><strong>Brief</strong>: Same as none but displays the description below the user picture and name.</li>
 <li><strong>Verbose</strong>: List format. Recommended if your team members tends to have long user descriptions.</li>
 </ul>';
+
+//uofr hack dapiawej
+$string['restrictedtags'] = 'Restricted tags';
+$string['restrictedtags_desc'] = 'If enabled, tags that are selected in the listbox will be disabled when they are used. ';
+
+//system
+$string['wwwroot'] = '{wwwroot}';
+$string['diskfreespace'] = '{diskfreespace}';
+$string['diskfreespacedata'] = '{diskfreespacedata}';
+$string['filtercodes'] = '{filtercodes}';
+$string['usercount'] = '{usercount}';
+$string['userscountrycount'] = '{userscountrycount}';
+
+//menu
+$string['toggleeditingmenu'] = '{toggleeditingmenu}';
+$string['mycoursesmenu'] = '{mycoursesmenu}';
+$string['courserequestmenu0'] = '{courserequestmenu0}';
+$string['courserequestmenu'] = '{courserequestmenu}';
+$string['menudev'] = '{menudev}';
+$string['menuadmin'] = '{menuadmin}';
+$string['categoriesmenu'] = '{categoriesmenu}';
+$string['categories0menu'] = '{categories0menu}';
+$string['categoriesxmenu'] = '{categoriesxmenu}';
+
+//url
+$string['pagepath'] = '{pagepath}';
+$string['ipaddress'] = '{ipaddress}';
+$string['referrer'] = '{referrer}';
+$string['referer'] = '{referer}';
+$string['protocol'] = '{protocol}';
+$string['sesskey'] = '{sesskey}';
+$string['wwwcontactform'] = '{wwwcontactform}';
+$string['urlencode'] = '{urlencode}';
+$string['thisurl_enc'] = '{thisurl_enc}';
+$string['thisurl'] = '{thisurl}';
+$string['%7Bsesskey%7D'] = '%7Bsesskey%7D';
+
+// contactform
+$string['formquickquestions'] = '{formquickquestion}';
+$string['formcontactuss'] = '{formcontactus}';
+$string['formcourserequests'] = '{formcourserequest}';
+$string['formcheckins'] = '{formcheckin}';
+$string['formsupports'] = '{formsupport}';
+$string['formsesskey'] = '{formsesskey}';
+$string['editingtoggle'] = '{editingtoggle}';
+$string['recaptcha'] = '{recaptcha}';
+
+$string['notenabled'] = 'Not enabled';
+$string['tagnotenabled'] = 'This tag is not enabled.';
+
+//end of hack
+
 $string['brief'] = 'Brief';
 $string['verbose'] = 'Verbose';
 $string['teamcardslinktype'] = 'Team link type';
@@ -105,6 +157,7 @@ $string['photoeditor'] = 'Photo editor';
 $string['photoeditorlink'] = 'https://pixlr.com/editor/';
 $string['screenrec'] = 'Screen recorder';
 $string['screenreclink'] = 'https://screenapp.io/#/recording';
+$string['notavailable'] = 'Not available';
 
 $string['formquickquestion'] = '
 <form action="{wwwroot}/local/contact/index.php" method="post" class="cf contact-us">

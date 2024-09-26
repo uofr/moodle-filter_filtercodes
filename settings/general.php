@@ -1,5 +1,5 @@
 <?php
-// This file is part of FilterCodes for Moodle - http://moodle.org/
+// This file is part of FilterCodes for Moodle - https://moodle.org/
 //
 // FilterCodes is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Settings page for FilterCodes.
@@ -20,7 +20,7 @@
  * @package    filter_filtercodes
  * @copyright  2017-2023 TNG Consulting Inc. - www.tngcosulting.ca
  * @author     Michael Milette
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -123,7 +123,8 @@ $choices = ['' => get_string('none'),
         'email' => get_string('issueremail', 'badges'),
         'message' => get_string('message', 'message'),
         'profile' => get_string('profile'),
-        'phone' => get_string('phone')];
+        'phone' => get_string('phone'),
+];
 $setting = new admin_setting_configselect($name, $title, $description, $default, $choices);
 $settings->add($setting);
 
@@ -151,7 +152,8 @@ $description = get_string('teamcardsformat_desc', 'filter_filtercodes');
 $choices = ['' => get_string('none'),
         'infoicon' => get_string('icon'),
         'brief' => get_string('brief', 'filter_filtercodes'),
-        'verbose' => get_string('verbose', 'filter_filtercodes')];
+        'verbose' => get_string('verbose', 'filter_filtercodes'),
+];
 $setting = new admin_setting_configselect($name, $title, $description, $default, $choices);
 $settings->add($setting);
 
@@ -159,9 +161,10 @@ $settings->add($setting);
 $default = 'vertical'; // Default is vertical cards.
 $name = 'filter_filtercodes/coursecardsformat';
 $title = get_string('coursecardsformat', 'filter_filtercodes');
-$choices = ['vertical' => get_string('vertical', 'editor'),  // Image above the description.
-        'horizontal' => get_string('horizontal', 'editor'), // Image to the left of the description.
-        'table' => get_string('list') // Table with course name, category and description.
+$choices = [
+    'vertical' => get_string('vertical', 'editor'), // Image above the description.
+    'horizontal' => get_string('horizontal', 'editor'), // Image to the left of the description.
+    'table' => get_string('list'), // Table with course name, category and description.
 ];
 $description = get_string('coursecardsformat_desc', 'filter_filtercodes');
 $setting = new admin_setting_configselect($name, $title, $description, $default, $choices);
@@ -175,3 +178,60 @@ $choices = range(0, 20);
 $description = get_string('coursecardsbyenrol_desc', 'filter_filtercodes');
 $setting = new admin_setting_configselect($name, $title, $description, $default, $choices);
 $settings->add($setting);
+
+// Option to select how to display user description for {teamcards} tag.
+$default = ''; // Default is to not display the description field.
+$name = 'filter_filtercodes/restrictedtags';
+$title = get_string('restrictedtags', 'filter_filtercodes');
+$description = get_string('restrictedtags_desc', 'filter_filtercodes');
+
+$choices = ['' => get_string('none'),
+
+//system tags
+'{diskfreespace}' => get_string('diskfreespace', 'filter_filtercodes'),
+'{wwwroot}' => get_string('wwwroot', 'filter_filtercodes'),
+'{filtercodes}' => get_string('filtercodes', 'filter_filtercodes'),
+'{usercount}' => get_string('usercount', 'filter_filtercodes'),
+'{userscountrycount}' => get_string('userscountrycount', 'filter_filtercodes'),
+'{diskfreespacedata}' => get_string('diskfreespacedata', 'filter_filtercodes'),
+
+//menu tags
+'{toggleeditingmenu}' => get_string('toggleeditingmenu', 'filter_filtercodes'),
+'{mycoursesmenu}' => get_string('mycoursesmenu', 'filter_filtercodes'),
+'{courserequestmenu0}' => get_string('courserequestmenu0', 'filter_filtercodes'),
+'{courserequestmenu}' => get_string('courserequestmenu', 'filter_filtercodes'),
+'{menudev}' => get_string('menudev', 'filter_filtercodes'),
+'{menuadmin}' => get_string('menuadmin', 'filter_filtercodes'),
+'{categoriesmenu}' => get_string('categoriesmenu', 'filter_filtercodes'),
+'{categories0menu}' => get_string('categories0menu', 'filter_filtercodes'),
+'{categoriesxmenu}' => get_string('categoriesxmenu', 'filter_filtercodes'),
+ 
+//url
+ '{pagepath}' => get_string('pagepath', 'filter_filtercodes'),
+ '{ipaddress}' => get_string('ipaddress', 'filter_filtercodes'),
+ '{referrer}' => get_string('referrer', 'filter_filtercodes'),
+ '{referer}' => get_string('referer', 'filter_filtercodes'),
+ '{protocol}' => get_string('protocol', 'filter_filtercodes'),
+ '{urlencode}' => get_string('urlencode', 'filter_filtercodes'),
+  '{thisurl_enc}' => get_string('thisurl_enc', 'filter_filtercodes'),
+  '{thisurl}' => get_string('thisurl', 'filter_filtercodes'),
+  '{sesskey}' => get_string('sesskey', 'filter_filtercodes'),
+ '%7Bsesskey%7D' => '%7Bsesskey%7D',
+  
+ //contactform
+ '{wwwcontactform}' => get_string('wwwcontactform', 'filter_filtercodes'),
+ '{formquickquestion}' => get_string('formquickquestions', 'filter_filtercodes'),
+ '{formcontactus}' => get_string('formcontactuss', 'filter_filtercodes'),
+ '{formcourserequest}' => get_string('formcourserequests', 'filter_filtercodes'),
+ '{formcheckin}' => get_string('formcheckins', 'filter_filtercodes'),
+ '{formsupport}' => get_string('formsupports', 'filter_filtercodes'),
+ '{recaptcha}' => get_string('recaptcha', 'filter_filtercodes'),
+ '{editingtoggle}' => get_string('editingtoggle', 'filter_filtercodes'),
+ '{formsesskey}' => get_string('formsesskey', 'filter_filtercodes'),
+ 
+];
+
+
+$setting = new admin_setting_configmultiselect($name, $title, $description, $default, $choices);
+$settings->add($setting);
+
