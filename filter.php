@@ -30,8 +30,10 @@ use core_table\local\filter\integer_filter;
 use core_user\table\participants_filterset;
 use core_user\table\participants_search;
 use Endroid\QrCode\QrCode;
+use Integrations\PhpSdk\TiiLTI;
 
 require_once($CFG->dirroot . '/course/renderer.php');
+require_once($CFG->dirroot . '/plagiarism/turnitin/lib.php');
 
 /**
  * Extends the moodle_text_filter class to provide plain text support for new tags.
@@ -5270,6 +5272,74 @@ class filter_filtercodes extends moodle_text_filter {
                 '/\{info\}(.*)\{\/info\}/isuU',
                 function ($matches) use ($infowrapper) {
                     return $infowrapper[0] . htmlspecialchars($matches[1], ENT_COMPAT) . $infowrapper[1];
+                },
+                $text
+            );
+            if ($newtext !== false) {
+                $text = $newtext;
+            }
+        }
+
+        // Tag: {tiieula}...{/tiieula}.
+        // Output the Turnitin end user liscence agreement.
+        if (stripos($text, '{/tiieula}') !== false) {
+            global $OUTPUT;
+
+            static $tiiconnection;
+
+            $tiiplagiarismplugin = new plagiarism_plugin_turnitin();
+            $output = '';
+
+            $tiiplagiarismplugin->load_page_components();
+
+            if (empty($tiiconnection)) {
+                $tiiconnection = $tiiplagiarismplugin->test_turnitin_connection();
+            }
+            if ($tiiconnection) {
+                $user = new turnitin_user($USER->id, 'Learner');
+                $eulaaccepted = ($user->useragreementaccepted == 0) ? $user->get_accepted_user_agreement() : $user->useragreementaccepted;
+
+                if ($eulaaccepted != 1) {
+                    $eulalink = html_writer::tag('span',
+                        get_string('turnitinppulapre', 'plagiarism_turnitin'),
+                        array('class' => 'pp_turnitin_eula_link tii_tooltip', 'id' => 'rubric_manager_form')
+                    );
+                    $eulaignoredclass = ($eulaaccepted == 0) ? ' pp_turnitin_eula_ignored' : '';
+                    $eula = html_writer::tag('div', $eulalink, array('class' => 'pp_turnitin_eula'.$eulaignoredclass,
+                                                'data-userid' => $user->id));
+
+                    $form = turnitin_view::output_launch_form(
+                        "useragreement",
+                        0,
+                        $user->tiiuserid,
+                        "Learner",
+                        get_string('turnitinppulapre', 'plagiarism_turnitin'),
+                        false
+                    );
+                    $form .= " ".get_string('noscriptula', 'plagiarism_turnitin');
+
+                    $noscripteula = html_writer::tag('noscript', $form, array('class' => 'warning turnitin_ula_noscript'));
+                }
+            }
+
+            if (!empty($eula)) {
+                $output .= $eula.$noscripteula;
+
+                $turnitincomms = new turnitin_comms();
+                $turnitincall = $turnitincomms->initialise_api();
+
+                $customdata = array("disable_form_change_checker" => true,
+                                    "elements" => array(array('html', $OUTPUT->box('', '', 'useragreement_inputs'))));
+
+                $eulaform = new turnitin_form($turnitincall->getApiBaseUrl().TiiLTI::EULAENDPOINT, $customdata,
+                                                        'POST', $target = 'eulaWindow', array('id' => 'eula_launch'));
+                $output .= $OUTPUT->box($eulaform->display(), 'tii_useragreement_form', 'useragreement_form');
+            }
+
+            $newtext = preg_replace_callback(
+                '/\{tiieula\}(.*)\{\/tiieula\}/isuU',
+                function ($matches) use ($output) {
+                    return $output;
                 },
                 $text
             );
