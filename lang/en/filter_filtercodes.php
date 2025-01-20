@@ -300,3 +300,7 @@ $string['notenabled'] = 'Not enabled';
 $string['tagnotenabled'] = 'This tag is not enabled.';
 
 //end of hack
+$string['wishlist'] = 'Wishlist';
+$string['wishlist_nocourses'] = 'No courses in the list';
+$string['wishlist_add'] = 'Add this course to the list';
+$string['wishlist_remove'] = 'Remove this course from the list';
