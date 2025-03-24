@@ -1,18 +1,20 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [2.6.2] 2024-12-16 (dev)
-### Added
-- Performance optimization: Now caches login state.
-- New {firstnamephonetic} tag.
-- New {lastnamephonetic} tag.
-- New {middlename} tag.
+## [2.6.2] 2025-03-05 (dev)
 ### Updated
+- The sitesummary tag now displays the site summary instead of site full name.
+- Managers can no longer access the Themes menu.
+- Refactored menuwishlist. No functional change.
+- Fixed coding style guidelines compliance issue.
+- Only Site Administrators can access User: Profile Fields in Admin menu.
 - Fix-312: ifactivitycompleted and ifnotactivitycompleted now works correctly with graded activities.
+- Fix-311: Global tags can now include numbers in their name.
+- Fix-322: Made settings path more specfic.
+- Copyright notice to include 2025.
 
 ## [2.6.1] 2024-11-20
 ### Update
-- Fix-311: Global tags can now include numbers in their name.
 - Fix-308: Fixed compatibility issue with PHP 8.3.
 
 ## [2.6.0] 2024-10-07
