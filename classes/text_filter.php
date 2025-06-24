@@ -827,7 +827,7 @@ class text_filter extends \filtercodes_base_text_filter {
      * @return bool if true or false
      */
     public function validateDate($date, $format = 'd/m/Y H:i:s') {
-        $d = DateTime::createFromFormat($format, $date);
+        $d = \DateTime::createFromFormat($format, $date);
         return $d && $d->format($format) === $date;
     }
     /**
