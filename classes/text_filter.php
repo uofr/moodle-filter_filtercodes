@@ -1036,19 +1036,19 @@ class text_filter extends \filtercodes_base_text_filter {
                     $menu .= '-{getstring:admin}debugging{/getstring}|/admin/settings.php?section=debugging' . PHP_EOL;
                     $menu .= '-{getstring:admin}purgecachespage{/getstring}|/admin/purgecaches.php' . PHP_EOL;
                     $menu .= '-###' . PHP_EOL;
-                    if (file_exists($CFG->dirroot . '/local/adminer/index.php')) {
+                    if (file_exists($CFG->dirroot . '/local/adminer/version.php')) {
                         $menu .= '-{getstring:local_adminer}pluginname{/getstring}|/local/adminer' . PHP_EOL;
                     }
-                    if (file_exists($CFG->dirroot . '/local/codechecker/index.php')) {
+                    if (file_exists($CFG->dirroot . '/local/codechecker/version.php')) {
                         $menu .= '-{getstring:local_codechecker}pluginname{/getstring}|/local/codechecker' . PHP_EOL;
                     }
-                    if (file_exists($CFG->dirroot . '/local/moodlecheck/index.php')) {
+                    if (file_exists($CFG->dirroot . '/local/moodlecheck/version.php')) {
                         $menu .= '-{getstring:local_moodlecheck}pluginname{/getstring}|/local/moodlecheck' . PHP_EOL;
                     }
-                    if (file_exists($CFG->dirroot . '/admin/tool/pluginskel/index.php')) {
+                    if (file_exists($CFG->dirroot . '/admin/tool/pluginskel/version.php')) {
                         $menu .= '-{getstring:tool_pluginskel}pluginname{/getstring}|/admin/tool/pluginskel' . PHP_EOL;
                     }
-                    if (file_exists($CFG->dirroot . '/local/tinyfilemanager/index.php')) {
+                    if (file_exists($CFG->dirroot . '/local/tinyfilemanager/version.php')) {
                         $menu .= '-{getstring:local_tinyfilemanager}pluginname{/getstring}|/local/tinyfilemanager' . PHP_EOL;
                     }
                     $menu .= '-{getstring}phpinfo{/getstring}|/admin/phpinfo.php' . PHP_EOL;
@@ -1069,9 +1069,10 @@ class text_filter extends \filtercodes_base_text_filter {
                     $menu .= '-Dev docs|https://moodle.org/development|Moodle.org ({getstring}english{/getstring})' . PHP_EOL;
                     $menu .= '-Dev forum|https://moodle.org/mod/forum/view.php?id=55|Moodle.org ({getstring}english{/getstring})' .
                             PHP_EOL;
-                    $menu .= '-Tracker|https://tracker.moodle.org/|Moodle.org ({getstring}english{/getstring})' . PHP_EOL;
+                    $menu .= '-Tracker|https://moodle.atlassian.net/jira/|Moodle.org ({getstring}english{/getstring})' . PHP_EOL;
                     $menu .= '-AMOS|https://lang.moodle.org/|Moodle.org ({getstring}english{/getstring})' . PHP_EOL;
-                    $menu .= '-WCAG 2.1|https://www.w3.org/WAI/WCAG21/quickref/|W3C ({getstring}english{/getstring})' . PHP_EOL;
+                    $menu .= '-WCAG 2.2|https://www.w3.org/WAI/WCAG22/quickref/?versions=2.2&currentsidebar=%23col_customize'
+                        . '&levels=aaa|W3C ({getstring}english{/getstring})' . PHP_EOL;
                     $menu .= '-###' . PHP_EOL;
                     $menu .= '-DevTuts|https://www.youtube.com/watch?v=UY_pcs4HdDM|{getstring}english{/getstring}' . PHP_EOL;
                     $menu .= '-Moodle Development School|https://moodledev.moodle.school/|{getstring}english{/getstring}' . PHP_EOL;
