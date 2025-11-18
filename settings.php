@@ -1,5 +1,5 @@
 <?php
-// This file is part of FilterCodes for Moodle - https://moodle.org/
+// This file is part of FilterCodes for Moodle - http://moodle.org/
 //
 // FilterCodes is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,15 +12,15 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
  * Main filter code for FilterCodes.
  *
  * @package    filter_filtercodes
- * @copyright  2017-2025 TNG Consulting Inc. - www.tngconsulting.ca
+ * @copyright  2017-2023 TNG Consulting Inc. - www.tngconsulting.ca
  * @author     Michael Milette
- * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 // Settings have been split into separate files, one for each tab. These are called from this main settings.php file.
@@ -29,7 +29,7 @@ defined('MOODLE_INTERNAL') || die;
 
 if ($hassiteconfig) {
     if ($ADMIN->fulltree) {
-        require($CFG->dirroot . '/filter/filtercodes/settings/general.php');
-        require($CFG->dirroot . '/filter/filtercodes/settings/global.php');
+        require('settings/general.php');
+        require('settings/global.php');
     }
 }
