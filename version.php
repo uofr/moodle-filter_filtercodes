@@ -1,5 +1,5 @@
 <?php
-// This file is part of FilterCodes for Moodle - https://moodle.org/
+// This file is part of FilterCodes for Moodle - http://moodle.org/
 //
 // FilterCodes is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,21 +12,21 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
  * Version information for FilterCodes.
  *
  * @package    filter_filtercodes
- * @copyright  2017-2025 TNG Consulting Inc. - {@link https://www.tngconsulting.ca/}
+ * @copyright  2017-2023 TNG Consulting Inc. - www.tngconsulting.ca
  * @author     Michael Milette
- * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2025050500;            // The current plugin version (Date: YYYYMMDDXX).
+$plugin->version   = 2023050709;            // The current plugin version (Date: YYYYMMDDXX).
 $plugin->requires  = 2014051200;            // Requires Moodle version 2.7 or later.
 $plugin->component = 'filter_filtercodes';  // Full name of the plugin (used for diagnostics).
-$plugin->release   = '2.7.0';
+$plugin->release   = '2.3.7 (rc)';
 $plugin->maturity  = MATURITY_STABLE;

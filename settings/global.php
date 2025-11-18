@@ -1,5 +1,5 @@
 <?php
-// This file is part of FilterCodes for Moodle - https://moodle.org/
+// This file is part of FilterCodes for Moodle - http://moodle.org/
 //
 // FilterCodes is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -12,15 +12,15 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
  * Settings for global custom tags for FilterCodes.
  *
  * @package    filter_filtercodes
- * @copyright  2017-2025 TNG Consulting Inc. - www.tngconsulting.ca
+ * @copyright  2017-2023 TNG Consulting Inc. - www.tngconsulting.ca
  * @author     Michael Milette
- * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -39,7 +39,7 @@ $title = get_string('globaltagcount', $name);
 $description = get_string('globaltagcountdesc', $name);
 $default = 0;
 $choices = [];
-for ($i = 0; $i <= 100; $i++) {
+for ($i = 0; $i <= 50; $i++) {
     $choices[$i] = $i;
 }
 $settings->add(new admin_setting_configselect($name . '/globaltagcount', $title, $description, $default, $choices));
@@ -55,13 +55,9 @@ $default = '';
 $globaltagcount = get_config($name, 'globaltagcount');
 for ($i = 1; $i <= $globaltagcount; $i++) {
     // Tag name.
-    $setting = new admin_setting_configtext(
-        $name . '/globalname' . $i,
-        $tagtitle .  get_config($name, 'globalname' . $i),
-        $tagdescription,
-        $default,
-        PARAM_ALPHANUM
-    );
+    $setting = new admin_setting_configtext($name . '/globalname' . $i,
+            $tagtitle .  get_config($name, 'globalname' . $i),
+            $tagdescription, $default, PARAM_ALPHA);
     $settings->add($setting);
 
     // Tag content editor.
@@ -72,22 +68,12 @@ for ($i = 1; $i <= $globaltagcount; $i++) {
 
     if (empty($editor)) {
         // Plain text area.
-        $setting = new admin_setting_configtextarea(
-            $name . '/globalcontent' . $i,
-            $contenttitle,
-            $contentdescription,
-            $default,
-            PARAM_RAW
-        );
+        $setting = new admin_setting_configtextarea($name . '/globalcontent' . $i, $contenttitle,
+                $contentdescription, $default, PARAM_RAW);
     } else {
         // Rich text area.
-        $setting = new admin_setting_confightmleditor(
-            $name . '/globalcontent' . $i,
-            $contenttitle,
-            $contentdescription,
-            $default,
-            PARAM_RAW
-        );
+        $setting = new admin_setting_confightmleditor($name . '/globalcontent' . $i, $contenttitle,
+                $contentdescription, $default, PARAM_RAW);
     }
     $settings->add($setting);
 
