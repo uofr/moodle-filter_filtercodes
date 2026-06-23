@@ -270,3 +270,54 @@ $string['wishlist'] = 'Wishlist';
 $string['wishlist_add'] = 'Add this course to the list';
 $string['wishlist_nocourses'] = 'No courses in the list';
 $string['wishlist_remove'] = 'Remove this course from the list';
+
+//uofr hack dapiawej
+$string['restrictedtags'] = 'Restricted tags';
+$string['restrictedtags_desc'] = 'If enabled, tags that are selected in the listbox will be disabled when they are used. ';
+
+//system
+$string['wwwroot'] = '{wwwroot}';
+$string['diskfreespace'] = '{diskfreespace}';
+$string['diskfreespacedata'] = '{diskfreespacedata}';
+$string['filtercodes'] = '{filtercodes}';
+$string['usercount'] = '{usercount}';
+$string['userscountrycount'] = '{userscountrycount}';
+
+//menu
+$string['toggleeditingmenu'] = '{toggleeditingmenu}';
+$string['mycoursesmenu'] = '{mycoursesmenu}';
+$string['courserequestmenu0'] = '{courserequestmenu0}';
+$string['courserequestmenu'] = '{courserequestmenu}';
+$string['menudev'] = '{menudev}';
+$string['menuadmin'] = '{menuadmin}';
+$string['categoriesmenu'] = '{categoriesmenu}';
+$string['categories0menu'] = '{categories0menu}';
+$string['categoriesxmenu'] = '{categoriesxmenu}';
+
+//url
+$string['pagepath'] = '{pagepath}';
+$string['ipaddress'] = '{ipaddress}';
+$string['referrer'] = '{referrer}';
+$string['referer'] = '{referer}';
+$string['protocol'] = '{protocol}';
+$string['sesskey'] = '{sesskey}';
+$string['wwwcontactform'] = '{wwwcontactform}';
+$string['urlencode'] = '{urlencode}';
+$string['thisurl_enc'] = '{thisurl_enc}';
+$string['thisurl'] = '{thisurl}';
+$string['%7Bsesskey%7D'] = '%7Bsesskey%7D';
+
+// contactform
+$string['formquickquestions'] = '{formquickquestion}';
+$string['formcontactuss'] = '{formcontactus}';
+$string['formcourserequests'] = '{formcourserequest}';
+$string['formcheckins'] = '{formcheckin}';
+$string['formsupports'] = '{formsupport}';
+$string['formsesskey'] = '{formsesskey}';
+$string['editingtoggle'] = '{editingtoggle}';
+$string['recaptcha'] = '{recaptcha}';
+
+$string['notenabled'] = 'Not enabled';
+$string['tagnotenabled'] = 'This tag is not enabled.';
+
+//end of hack
