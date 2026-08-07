@@ -18,7 +18,7 @@
  * Main filter code for FilterCodes.
  *
  * @package    filter_filtercodes
- * @copyright  2017-2025 TNG Consulting Inc. - www.tngconsulting.ca
+ * @copyright  2017-2026 TNG Consulting Inc. - www.tngconsulting.ca
  * @author     Michael Milette
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -31,5 +31,9 @@ if ($hassiteconfig) {
     if ($ADMIN->fulltree) {
         require($CFG->dirroot . '/filter/filtercodes/settings/general.php');
         require($CFG->dirroot . '/filter/filtercodes/settings/global.php');
+        // Pro Edition settings are loaded when the Pro Edition is installed.
+        if (file_exists(__DIR__ . '/settings/pro.php')) {
+            require(__DIR__ . '/settings/pro.php');
+        }
     }
 }

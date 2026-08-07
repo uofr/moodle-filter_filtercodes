@@ -18,7 +18,7 @@
  * Main filter code for FilterCodes.
  *
  * @package    filter_filtercodes
- * @copyright  2017-2025 TNG Consulting Inc. - www.tngconsulting.ca
+ * @copyright  2017-2026 TNG Consulting Inc. - www.tngconsulting.ca
  * @author     Michael Milette
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -44,7 +44,7 @@ if (class_exists('\core_filters\text_filter')) {
 /**
  * Extends the moodle_text_filter class to provide plain text support for new tags.
  *
- * @copyright  2017-2025 TNG Consulting Inc. - www.tngconsulting.ca
+ * @copyright  2017-2026 TNG Consulting Inc. - www.tngconsulting.ca
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class text_filter extends \filtercodes_base_text_filter {
@@ -95,6 +95,12 @@ class text_filter extends \filtercodes_base_text_filter {
 
         // Handle caching of results.
         static $archetypes = [];
+
+        // Clear cache in unit tests to ensure test isolation.
+        if (defined('PHPUNIT_TEST') && PHPUNIT_TEST) {
+            $archetypes = [];
+        }
+
         if (isset($archetypes[$archetype])) {
             return $archetypes[$archetype];
         }
@@ -236,11 +242,8 @@ class text_filter extends \filtercodes_base_text_filter {
         global $PAGE, $CFG;
         $img = 'u/' . ($size > 100 ? 'f3' : ($size > 35 ? 'f1' : 'f2'));
         $renderer = $PAGE->get_renderer('core');
-        if ($CFG->branch >= 33) {
-            $url = $renderer->image_url($img);
-        } else {
-            $url = $renderer->pix_url($img); // Deprecated as of Moodle 3.3.
-        }
+        $url = $renderer->image_url($img);
+
         return (new \moodle_url($url))->out();
     }
 
@@ -286,7 +289,13 @@ class text_filter extends \filtercodes_base_text_filter {
         static $profilefields;
         static $lastfields;
 
-        // If we have already cached the profile fields and data, return them.
+        // Clear cache in unit tests to ensure test isolation.
+        if (defined('PHPUNIT_TEST') && PHPUNIT_TEST) {
+            $profilefields = null;
+            $lastfields = null;
+        }
+
+        // If we have already cached the profile fields and data for this user and fields, return them.
         if (isset($profilefields) && $lastfields == $fields) {
             return $profilefields;
         }
@@ -343,21 +352,6 @@ class text_filter extends \filtercodes_base_text_filter {
     }
 
     /**
-     * Determine if running on http or https. Same as Moodle's is_https() except that it is backwards compatible to Moodle 2.7.
-     *
-     * @return boolean true if protocol is https, false if http.
-     */
-    private function ishttps() {
-        global $CFG;
-        if ($CFG->branch >= 28) {
-            $ishttps = is_https(); // Available as of Moodle 2.8.
-        } else {
-            $ishttps = (filter_input(INPUT_SERVER, 'HTTPS') === 'on');
-        }
-        return $ishttps;
-    }
-
-    /**
      * Determine if access is from a web service.
      *
      * @return boolean true if a web service, false if web browser.
@@ -365,7 +359,7 @@ class text_filter extends \filtercodes_base_text_filter {
     private function iswebservice() {
         global $ME;
         // If this is a web service or the Moodle mobile app...
-        $isws = (WS_SERVER || (strstr($ME, "webservice/") !== false && optional_param('token', '', PARAM_ALPHANUM)));
+        $isws = (WS_SERVER || (strstr($ME ?? '', "webservice/") !== false && optional_param('token', '', PARAM_ALPHANUM)));
         return $isws;
     }
 
@@ -381,15 +375,9 @@ class text_filter extends \filtercodes_base_text_filter {
             // If Moodle reCAPTCHA configured.
             if (!empty($CFG->recaptchaprivatekey) && !empty($CFG->recaptchapublickey)) {
                 // Yes? Generate reCAPTCHA.
-                if (file_exists($CFG->libdir . '/recaptchalib_v2.php')) {
-                    // For reCAPTCHA 2.0.
-                    require_once($CFG->libdir . '/recaptchalib_v2.php');
-                    return recaptcha_get_challenge_html(RECAPTCHA_API_URL, $CFG->recaptchapublickey);
-                } else {
-                    // For reCAPTCHA 1.0.
-                    require_once($CFG->libdir . '/recaptchalib.php');
-                    return recaptcha_get_html($CFG->recaptchapublickey, null, $this->ishttps());
-                }
+                // For reCAPTCHA 2.0.
+                require_once($CFG->libdir . '/recaptchalib_v2.php');
+                return recaptcha_get_challenge_html(RECAPTCHA_API_URL, $CFG->recaptchapublickey);
             } else if ($CFG->debugdisplay == 1) { // If debugging is set to DEVELOPER...
                 // Show indicator that {reCAPTCHA} tag is not required.
                 return 'Warning: The reCAPTCHA tag is not required here.';
@@ -398,62 +386,6 @@ class text_filter extends \filtercodes_base_text_filter {
         // Logged-in as non-guest user (reCAPTCHA is not required) or Moodle reCAPTCHA not configured.
         // Don't generate reCAPTCHA.
         return '';
-    }
-
-    /**
-     * Scrape HTML (callback)
-     *
-     * Extract content from another web page.
-     * Example: Can be used to extract a shared privacy policy across your websites.
-     *
-     * @param string $url URL address of content source.
-     * @param string $tag HTML tag that contains the information we want to retrieve.
-     * @param string $class (optional) HTML tag class attribute we should match.
-     * @param string $id (optional) HTML tag id attribute we should match.
-     * @param string $code (optional) any URL encoded HTML code you want to insert after the retrieved content.
-     * @return string Extracted content+optional code. If content is unavailable, returns message to contact webmaster.
-     */
-    private function scrapehtml($url, $tag = '', $class = '', $id = '', $code = '') {
-        // Retrieve content. If the URL fails, return a message.
-        $content = @file_get_contents($url);
-        if (empty($content)) {
-            return get_string('contentmissing', 'filter_filtercodes');
-        }
-
-        // Disable warnings.
-        $libxmlpreviousstate = libxml_use_internal_errors(true);
-
-        // Load content into DOM object.
-        $dom = new \DOMDocument();
-        $dom->loadHTML($content);
-
-        // Clear suppressed warnings.
-        libxml_clear_errors();
-        libxml_use_internal_errors($libxmlpreviousstate);
-
-        // Scrape out the content we want. If not found, return everything.
-        $xpath = new \DOMXPath($dom);
-
-        // If a tag was not specified.
-        if (empty($tag)) {
-            $tag .= '*'; // Match any tag.
-        }
-        $query = "//{$tag}";
-
-        // If a class was specified.
-        if (!empty($class)) {
-            $query .= "[@class=\"{$class}\"]";
-        }
-
-        // If an id was specified.
-        if (!empty($id)) {
-            $query .= "[@id=\"{$id}\"]";
-        }
-
-        $tag = $xpath->query($query);
-        $tag = $tag->item(0);
-
-        return $dom->saveXML($tag) . urldecode($code);
     }
 
     /**
@@ -567,9 +499,13 @@ class text_filter extends \filtercodes_base_text_filter {
      * @return bool True if the user is logged in and not a guest user, false otherwise.
      */
     private function isauthenticateduser() {
+        global $USER;
         static $isauthenticateduser;
+        static $cacheduserid;
 
-        if (!isset($isauthenticateduser)) {
+        // Recalculate if user has changed or not yet cached.
+        if (!isset($cacheduserid) || $cacheduserid !== $USER->id) {
+            $cacheduserid = $USER->id;
             $isauthenticateduser = isloggedin() && !isguestuser();
         }
 
@@ -754,7 +690,7 @@ class text_filter extends \filtercodes_base_text_filter {
     /**
      * Generate a user link of a specified type if logged-in.
      *
-     * @param string $clinktype Type of link to generate. Options include: email, message, profile, phone1.
+     * @param string $clinktype Type of link to generate. Options include: email, message, profile, phone, mobile.
      * @param object $user A user object.
      * @param string $name The name to be displayed.
      *
@@ -764,22 +700,22 @@ class text_filter extends \filtercodes_base_text_filter {
         if (!isloggedin() || isguestuser()) {
             $clinktype = ''; // No link, only name.
         }
-        switch ($clinktype) {
-            case 'email':
+
+        switch (true) {
+            case $clinktype == 'email':
                 $link = '<a href="mailto:' . $user->email . '">'  . $name . '</a>';
                 break;
-            case 'message':
+            case $clinktype == 'message':
                 $link = '<a href="' . (new \moodle_url('/message/index.php', ['id' => $user->id]))->out() . '">' . $name . '</a>';
                 break;
-            case 'profile':
+            case $clinktype == 'profile':
                 $link = '<a href="' . (new \moodle_url('/user/profile.php', ['id' => $user->id]))->out() . '">' . $name . '</a>';
                 break;
-            case 'phone1':
-                if (!empty($user->phone1)) {
-                    $link = '<a href="tel:' . $user->phone1 . '">' . $name . '</a>';
-                } else {
-                    $link = $name;
-                }
+            case $clinktype == 'phone' && !empty($user->phone1):
+                $link = '<a href="tel:' . $user->phone1 . '">' . $name . '</a>';
+                break;
+            case $clinktype == 'mobile' && !empty($user->phone2):
+                $link = '<a href="tel:' . $user->phone2 . '">' . $name . '</a>';
                 break;
             default:
                 $link = $name;
@@ -868,7 +804,7 @@ class text_filter extends \filtercodes_base_text_filter {
      * @return boolean True of there are more tags to be processed, otherwise false.
      */
     private function generatortags(&$text) {
-        global $CFG, $PAGE, $DB;
+        global $CFG, $PAGE, $DB, $SITE;
 
         $replace = []; // Array of key/value filterobjects.
 
@@ -994,9 +930,7 @@ class text_filter extends \filtercodes_base_text_filter {
                     $menu .= '-{getstring}reports{/getstring}|/report/view.php?courseid={courseid}' . PHP_EOL;
                     $menu .= '-###' . PHP_EOL;
                     $menu .= '-{getstring:question}questionbank{/getstring}|/question/edit.php?courseid={courseid}' . PHP_EOL;
-                    if ($CFG->branch >= 39) {
-                        $menu .= '-{getstring}contentbank{/getstring}|/contentbank/index.php?contextid={coursecontextid}' . PHP_EOL;
-                    }
+                    $menu .= '-{getstring}contentbank{/getstring}|/contentbank/index.php?contextid={coursecontextid}' . PHP_EOL;
                     $menu .= '-{getstring:completion}coursecompletion{/getstring}|/course/completion.php?id={courseid}' . PHP_EOL;
                     $menu .= '-{getstring:badges}badges{/getstring}|/badges/view.php?type=2&amp;id={courseid}' . PHP_EOL;
                 }
@@ -1206,7 +1140,8 @@ class text_filter extends \filtercodes_base_text_filter {
                         $action = in_array($PAGE->course->id, $wishlist) ? 'remove' : 'add';
                         $url = (new \moodle_url('/filter/filtercodes/action.php', [
                             'courseid' => $PAGE->course->id,
-                            'action' => $action,
+                            'action'   => $action,
+                            'sesskey'  => sesskey(),
                         ]))->out();
                         $menu .= '-' . get_string('wishlist_' . $action, 'filter_filtercodes') . '|' . $url . "\n";
                     }
@@ -1256,6 +1191,49 @@ class text_filter extends \filtercodes_base_text_filter {
                             $replace['/\{coursesummary ' . $course->id . '\}/isuU'] = format_text(
                                 $course->summary,
                                 FORMAT_HTML,
+                                ['context' => $coursecontext]
+                            );
+                        }
+                    }
+                    unset($matches, $course, $courseids, $id);
+                }
+            }
+
+            // Tag: {coursename}.
+            // Description: The full name of a course, or the site name if not in a course.
+            // Parameters: None.
+            if (stripos($text, '{coursename') !== false) {
+                if (stripos($text, '{coursename}') !== false) {
+                    // No course ID was specified.
+                    $course = $PAGE->course;
+                    if ($course->id == $SITE->id) { // If not in a course, use the site name.
+                        $coursecontext = \context_system::instance();
+                        $replace['/\{coursename\}/i'] = format_string(
+                            $SITE->fullname,
+                            true,
+                            ['context' => $coursecontext]
+                        );
+                    } else { // If in a course - use course full name.
+                        $coursecontext = \context_course::instance($course->id);
+                        $replace['/\{coursename\}/i'] = format_string(
+                            $course->fullname,
+                            true,
+                            ['context' => $coursecontext]
+                        );
+                    }
+                }
+                if (stripos($text, '{coursename ') !== false) {
+                    // Course ID was specified.
+                    preg_match_all('/\{coursename ([0-9]+)\}/', $text, $matches);
+                    // Eliminate course IDs.
+                    $courseids = array_unique($matches[1]);
+                    $coursecontext = \context_system::instance();
+                    foreach ($courseids as $id) {
+                        $course = $DB->get_record('course', ['id' => $id]);
+                        if (!empty($course)) {
+                            $replace['/\{coursename ' . $course->id . '\}/isuU'] = format_string(
+                                $course->fullname,
+                                true,
                                 ['context' => $coursecontext]
                             );
                         }
@@ -1337,7 +1315,7 @@ class text_filter extends \filtercodes_base_text_filter {
             global $OUTPUT, $DB;
 
             $sql = 'SELECT DISTINCT u.id, u.username, u.firstname, u.lastname, u.email, u.picture, u.imagealt, u.firstnamephonetic,
-                    u.lastnamephonetic, u.middlename, u.alternatename, u.description, u.phone1
+                    u.lastnamephonetic, u.middlename, u.alternatename, u.description, u.phone1, u.phone2
                     FROM {course} c, {role_assignments} ra, {user} u, {context} ct
                     WHERE c.id = ct.instanceid AND ra.roleid in (?) AND ra.userid = u.id AND ct.id = ra.contextid
                         AND u.suspended = 0 AND u.deleted = 0
@@ -1376,6 +1354,7 @@ class text_filter extends \filtercodes_base_text_filter {
                         'message' => get_string('message', 'message'),
                         'profile' => get_string('profile'),
                         'phone' => get_string('phone'),
+                        'mobile' => get_string('phone2'),
                 ];
                 if ($cardformat == 'verbose') {
                     if (empty($CFG->enablegravatar)) {
@@ -1429,36 +1408,34 @@ class text_filter extends \filtercodes_base_text_filter {
             unset($cards, $users, $sql, $info, $prewrap, $postwrap, $cardformat);
         }
 
-        // Custom Course Fields - First implemented in Moodle 3.7.
-        if ($CFG->branch >= 37) {
-            // Tag: {course_field_shortname}.
-            // Description: Content from the custom course field specified by its shortname.
-            // Required Parameters: shortname of a custom course field.
-            if (stripos($text, '{course_field_') !== false) {
-                // Cached the custom course field data.
-                static $coursefields;
-                if (!isset($coursefields)) {
-                    $handler = \core_course\customfield\course_handler::create();
-                    $coursefields = $handler->export_instance_data_object($PAGE->course->id, true);
-                    $fieldsvisible = $handler->export_instance_data_object($PAGE->course->id);
-                    // Blank out the fields that should not be displayed.
-                    foreach ($coursefields as $field => $value) {
-                        if (empty($fieldsvisible->$field)) {
-                            $coursefields->$field = '';
-                        }
+        // Custom Course Fields
+        // Tag: {course_field_shortname}.
+        // Description: Content from the custom course field specified by its shortname.
+        // Required Parameters: shortname of a custom course field.
+        if (stripos($text, '{course_field_') !== false) {
+            // Cached the custom course field data.
+            static $coursefields;
+            if (!isset($coursefields)) {
+                $handler = \core_course\customfield\course_handler::create();
+                $coursefields = $handler->export_instance_data_object($PAGE->course->id, true);
+                $fieldsvisible = $handler->export_instance_data_object($PAGE->course->id);
+                // Blank out the fields that should not be displayed.
+                foreach ($coursefields as $field => $value) {
+                    if (empty($fieldsvisible->$field)) {
+                        $coursefields->$field = '';
                     }
                 }
-                $coursecontext = \context_course::instance($PAGE->course->id);
-                foreach ($coursefields as $field => $value) {
-                    $shortname = strtolower($field);
-                    // If the tag exists and it is not hidden in the custom course field's settings.
-                    if (stripos($text, '{course_field_' . $shortname . '}') !== false) {
-                        $replace['/\{course_field_' . $shortname . '\}/i'] = format_text(
-                            $value,
-                            FORMAT_HTML,
-                            ['context' => $coursecontext]
-                        );
-                    }
+            }
+            $coursecontext = \context_course::instance($PAGE->course->id);
+            foreach ($coursefields as $field => $value) {
+                $shortname = strtolower($field);
+                // If the tag exists and it is not hidden in the custom course field's settings.
+                if (stripos($text, '{course_field_' . $shortname . '}') !== false) {
+                    $replace['/\{course_field_' . $shortname . '\}/i'] = format_text(
+                        $value,
+                        FORMAT_HTML,
+                        ['context' => $coursecontext]
+                    );
                 }
             }
 
@@ -1620,6 +1597,147 @@ class text_filter extends \filtercodes_base_text_filter {
     }
 
     /**
+     * Helper function for creating if tags.
+     *
+     * @param string $text The text to check fo tags in
+     * @param array $replace The array of replacement rules to add to
+     * @param string $tagname The tagname to search for
+     * @param callable $callableistrue Callable taking the arguments,
+     *                 returning 1 if the content is to be shown, 0 for not show, -1 to ignore.
+     * @return void Nothing
+     */
+    private function if_tag($text, &$replace, $tagname, callable $callableistrue) {
+        $emit = function (array $stack) use (&$replace, $tagname) {
+            $key = '';
+            $value = '';
+            // Each capture group must not span a closing tag, preventing a nested pattern
+            // (e.g. {tag A}(.*){tag B}...{/tag}...{/tag}) from absorbing a preceding simple
+            // block's closing tag when the two patterns share the same argument.
+            $nocross = '((?:(?!\{\/' . $tagname . '\})[\s\S])*)';
+            for ($i = 0; $i < count($stack); $i++) {
+                $isopening = $stack[$i][0];
+                $args = $stack[$i][1];
+                $istrue = $stack[$i][2];
+                if ($isopening) {
+                    $key .= '{' . $tagname . '\s+' . preg_quote($args, '/') . '}' . $nocross;
+                    if ($istrue) {
+                        $value .= '$' . ($i + 1);
+                    }
+                } else {
+                    $key .= $nocross . '{\/' . $tagname . '}';
+                    if ($istrue) {
+                        $value .= '$' . ($i + 1);
+                    }
+                }
+            }
+            $replace['/' . $key . '/isuU'] = $value;
+        };
+
+        if (stripos($text, '{' . $tagname) !== false && stripos($text, '{/' . $tagname . '}') !== false) {
+            // Find opening and closing tags.
+            $re = '/{' . $tagname . '\s+(.*)}|{(\/)' . $tagname . '}/isuU';
+            $found = preg_match_all($re, $text, $matches, PREG_SET_ORDER);
+            if ($found > 0) {
+                $balance = 0;
+                $stack = [];
+                $istrue = [];
+                $balancedgroups = [];
+                foreach ($matches as $match) {
+                    $isopening = (!isset($match[2]));
+                    if (empty($stack) && !$isopening) {
+                        continue; // No opening tag found.
+                    }
+                    $balance += $isopening ? 1 : -1;
+                    if ($isopening) {
+                        $lastistrue = empty($istrue) ? true : end($istrue);
+                        $thisistrue = $callableistrue($match[1]);
+                        if ($thisistrue === -1) {
+                            continue;
+                        }
+                        $istrue[] = $lastistrue && $thisistrue;
+                    }
+
+                    $stack[] = [
+                        $isopening,
+                        $match[1],
+                        end($istrue),
+                    ];
+
+                    if (!$isopening) {
+                        // Pop the last element.
+                        array_pop($istrue);
+                    }
+
+                    if ($balance == 0) {
+                        // We are balanced, collect for later emit.
+                        $balancedgroups[] = $stack;
+                        $stack = [];
+                    }
+                }
+
+                // Emit deepest (most-nested) patterns first so that a simple pattern like
+                // {tag A}(.*){/tag} does not consume tags belonging to a nested group
+                // {tag B}{tag A}...{/tag}{/tag} before the nested pattern has a chance to run.
+                usort($balancedgroups, function ($a, $b) {
+                    $da = count(array_filter($a, function ($item) {
+                        return $item[0];
+                    }));
+                    $db = count(array_filter($b, function ($item) {
+                        return $item[0];
+                    }));
+                    return $db - $da;
+                });
+                foreach ($balancedgroups as $group) {
+                    $emit($group);
+                }
+
+                if (!empty($stack)) {
+                    // Drop opening tags till we are balanced.
+                    $newstack = [];
+                    foreach (array_reverse($stack) as $item) {
+                        if ($item[0] && $balance > 0) {
+                            // Need to remove opening tag.
+                            $balance--;
+                            continue;
+                        }
+                        $newstack[] = $item;
+                    }
+                    // Fix istrue values for the new stack by assigning the value of the opening tags
+                    // to the closing tags in the final stack.
+                    for ($i = 0; $i < count($newstack) / 2; $i++) {
+                        $newstack[$i][2] = $newstack[count($newstack) - 1 - $i][2];
+                    }
+
+                    if (!empty($newstack)) {
+                        $emit(array_reverse($newstack));
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Dispatch text through the Pro Edition tag processor if installed.
+     *
+     * Loads classes/text_filter_pro.php via Moodle's PSR-4 autoloader. When the
+     * Pro Edition file is absent (free edition), this is a no-op pass-through.
+     * Called before the generatortags() loop so that pro tag output is fed through
+     * the existing nested-tag resolution machinery.
+     *
+     * @param string $text    Text being filtered.
+     * @param array  $options Filter options passed through from filter().
+     * @return string Text with pro tags substituted (or unchanged on free edition).
+     */
+    protected function apply_pro_filters($text, array $options) {
+        static $pro = null;
+        if ($pro === null) {
+            $proclass = '\\filter_filtercodes\\text_filter_pro';
+            $pro = class_exists($proclass) ? new $proclass($this->context ?? \context_system::instance()) : false;
+        }
+        return $pro ? $pro->apply($text, $options) : $text;
+    }
+
+    /**
      * Main filter function called by Moodle.
      *
      * @param string $text   Content to be filtered.
@@ -1639,6 +1757,31 @@ class text_filter extends \filtercodes_base_text_filter {
         static $mygroupslist;
         static $mygroupingslist;
         static $mycohorts;
+        static $cachedfilteruserid;
+
+        // Reset user-specific cached data if the user has changed.
+        if (!isset($cachedfilteruserid) || $cachedfilteruserid !== $USER->id) {
+            $cachedfilteruserid = $USER->id;
+            $profilefields = null;
+            $profiledata = null;
+            $mygroupslist = null;
+            $mygroupingslist = null;
+            $mycohorts = null;
+        }
+
+        // Clear cache in unit tests to ensure test isolation.
+        if (defined('PHPUNIT_TEST') && PHPUNIT_TEST) {
+            $options['no-cache'] = true;
+        }
+
+        // Clear user-specific cached data if necessary.
+        if (!empty($options['no-cache'])) {
+            $profilefields = null;
+            $profiledata = null;
+            $mygroupslist = null;
+            $mygroupingslist = null;
+            $mycohorts = null;
+        }
 
         $replace = []; // Array of key/value filterobjects.
 
@@ -1651,6 +1794,10 @@ class text_filter extends \filtercodes_base_text_filter {
         // ...===================================================================================================================.
         // Tags that may create more content which could possibly include tags. These need to be processed first.
         // ...===================================================================================================================.
+
+        // Pro Edition tags run before the generator loop so that any free tags emitted
+        // by pro tag output are resolved by the existing nested-tag machinery below.
+        $text = $this->apply_pro_filters($text, $options);
 
         // Loop through the tags that may have embedded tags until these generator tags have all been proceseed.
 
@@ -1714,7 +1861,7 @@ class text_filter extends \filtercodes_base_text_filter {
         }
 
         // Tags: {courseid...
-        if (stripos($text, '{course') !== false || stripos($text, '%7Bcourseid') !== false) {
+        if (stripos($text, '{course') !== false || stripos($text, '%7Bcourse') !== false) {
             $courseid = 1; // Default to site.
             if ($PAGE->pagetype == 'enrol-index') {
                 // Make it work, even when we are on the enrolment page.
@@ -1838,11 +1985,7 @@ class text_filter extends \filtercodes_base_text_filter {
             // Description: URL that brought the user to the current page.
             // Parameters: None.
             if (stripos($text, '{referrer}') !== false) {
-                if ($CFG->branch >= 28) {
-                    $replace['/\{referrer\}/i'] = get_local_referer(false);
-                } else {
-                    $replace['/\{referrer\}/i'] = !empty($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
-                }
+                $replace['/\{referrer\}/i'] = get_local_referer(false);
             }
         }
 
@@ -1872,8 +2015,10 @@ class text_filter extends \filtercodes_base_text_filter {
         }
 
         if (stripos($text, '{thisurl') !== false) {
-            $url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") .
-                    "://{$_SERVER['HTTP_HOST']}{$_SERVER['REQUEST_URI']}";
+            $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http");
+            $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
+            $uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
+            $url = $protocol . "://" . $host . $uri;
 
             // Tag: {thisurl}.
             // Description: Complete URL of the current page.
@@ -1893,7 +2038,7 @@ class text_filter extends \filtercodes_base_text_filter {
         // Description: Protocol used to access the website (http or https).
         // Parameters: None.
         if (stripos($text, '{protocol}') !== false) {
-            $replace['/\{protocol\}/i'] = 'http' . ($this->ishttps() ? 's' : '');
+            $replace['/\{protocol\}/i'] = 'http' . (is_https() ? 's' : '');
         }
 
         // Tag: {ipaddress}.
@@ -1942,7 +2087,7 @@ class text_filter extends \filtercodes_base_text_filter {
             $newtext = preg_replace_callback(
                 '/\{getstring:?(\w*)\}(\w+)\{\/getstring\}/isuU',
                 function ($matches) use ($CFG) {
-                    if ($strexists = get_string_manager()->string_exists($matches[2], $matches[1]) && $CFG->branch >= 28) {
+                    if ($strexists = get_string_manager()->string_exists($matches[2], $matches[1])) {
                         $strexists = !get_string_manager()->string_deprecated($matches[2], $matches[1]);
                     }
                     if ($strexists) {
@@ -2702,7 +2847,7 @@ class text_filter extends \filtercodes_base_text_filter {
             if ($CFG->branch >= 311) {
                 $text = str_replace('{webpage}', '{profile_field_webpage}', $text);
             } else {
-                $replace['/\{webpage\}/i'] = $this->isauthenticateduser() ? $USER->url : '';
+                $replace['/\{webpage\}/i'] = $this->isauthenticateduser() ? trim($USER->url ?? '') : '';
             }
         }
 
@@ -2739,7 +2884,7 @@ class text_filter extends \filtercodes_base_text_filter {
             // Description: Support email address for the site from Moodle settings.
             // None.
             if (stripos($text, '{supportemail}') !== false) {
-                if (empty($CFG->supportname)) {
+                if (empty($CFG->supportemail)) {
                     $replace['/\{supportemail\}/i'] = get_string('notavailable', 'filter_filtercodes');
                 } else {
                     $replace['/\{supportemail\}/i'] = $CFG->supportemail;
@@ -2877,10 +3022,11 @@ class text_filter extends \filtercodes_base_text_filter {
         // Description: Scrapes content from an external HTML page. Cannot scrape secure pages from sites that requires login.
         // Optional parameters: You may use any combination of the following: tag="..." class="..." id="..." code="...".
         if (get_config('filter_filtercodes', 'enable_scrape') && stripos($text, '{scrape ') !== false) {
+            $scraper = new scraper();
             // Replace {scrape} tag and its attributes with retrieved content.
             $newtext = preg_replace_callback(
                 '/\{scrape\s+(.*)\}/isuU',
-                function ($matches) {
+                function ($matches) use ($scraper) {
                     // Parse the scrape tag's atributes.
                     $matches[0] = $matches[0] == null ? '' : strip_tags($matches[0]);
                     $attribs = substr($matches[0], 1, -1);
@@ -2895,7 +3041,7 @@ class text_filter extends \filtercodes_base_text_filter {
                         return "SCRAPE error: Missing or invalid required URL parameter.";
                     }
                     // Replace {scrape} tag and its attributes with retrieved content.
-                    return $this->scrapehtml($url, $tag, $class, $id, $code);
+                    return $scraper->scrapehtml($url, $tag, $class, $id, $code);
                 },
                 $text
             );
@@ -3049,12 +3195,14 @@ class text_filter extends \filtercodes_base_text_filter {
                             'message' => get_string('message', 'message'),
                             'profile' => get_string('profile'),
                             'phone' => get_string('phone'),
+                            'mobile' => get_string('phone2'),
                         ];
                         $iconclass = ['' => '',
                             'email' => 'fa fa-envelope-o',
                             'message' => 'fa fa-comment-o',
                             'profile' => 'fa fa-user-o',
-                            'phone' => 'fa fa-mobile',
+                            'phone' => 'fa fa-phone',
+                            'mobile' => 'fa fa-mobile',
                         ];
 
                         $cnt = 0;
@@ -3089,27 +3237,31 @@ class text_filter extends \filtercodes_base_text_filter {
 
                             $contacts .= '<span class="fc-coursecontactroles">' . implode(", ", $rolenames) . ': </span>';
 
-                            switch ($clinktype) {
-                                case 'email':
+                            switch (true) {
+                                case $clinktype == 'email':
                                     $contacts .= $icon . '<a href="mailto:' . $user->email . '">';
                                     $contacts .= $contactsclose;
                                     break;
-                                case 'message':
+                                case $clinktype == 'message':
                                     $contacts .= $icon . '<a href="' . (new \moodle_url(
                                         '/message/index.php',
                                         ['id' => $coursecontact['user']->id]
                                     ))->out() . '">';
                                     $contacts .= $contactsclose;
                                     break;
-                                case 'profile':
+                                case $clinktype == 'profile':
                                     $contacts .= $icon . '<a href="' . (new \moodle_url(
                                         '/user/profile.php',
                                         ['id' => $coursecontact['user']->id, 'course' => $PAGE->course->id]
                                     ))->out() . '">';
                                     $contacts .= $contactsclose;
                                     break;
-                                case 'phone1' && !empty($user->phone1):
+                                case $clinktype == 'phone' && !empty($user->phone1):
                                     $contacts .= $icon . '<a href="tel:' . $user->phone1 . '">';
+                                    $contacts .= $contactsclose;
+                                    break;
+                                case $clinktype == 'mobile' && !empty($user->phone2):
+                                    $contacts .= $icon . '<a href="tel:' . $user->phone2 . '">';
                                     $contacts .= $contactsclose;
                                     break;
                                 default: // Default is no-link.
@@ -3158,18 +3310,15 @@ class text_filter extends \filtercodes_base_text_filter {
             // Optional Parameters: "students:active" - Filter limiting to student who have not been suspended.
             // Description: Get just the number of "students" in the course.
             if (stripos($text, '{coursecount students}') !== false) {
-                if ($CFG->branch >= 32) {
-                    $coursecontext = \context_course::instance($PAGE->course->id);
-                    $role = $DB->get_record('role', ['shortname' => 'student']);
-                    $students = get_role_users($role->id, $coursecontext);
-                    $cnt = count($students);
-                    unset($students);
-                } else {
-                    $cnt = '';
-                }
+                $coursecontext = \context_course::instance($PAGE->course->id);
+                $role = $DB->get_record('role', ['shortname' => 'student']);
+                $students = get_role_users($role->id, $coursecontext);
+                $cnt = count($students);
+                unset($students);
                 $replace['/\{coursecount students\}/i'] = $cnt;
             }
             if (stripos($text, '{coursecount students:active}') !== false) {
+                // First attempt: count students via role assignments (preferred, accurate when roles assigned).
                 $sql = "SELECT COUNT(DISTINCT ue.userid)
                         FROM {user_enrolments} ue
                         JOIN {enrol} e ON e.id = ue.enrolid
@@ -3178,7 +3327,18 @@ class text_filter extends \filtercodes_base_text_filter {
                         JOIN {role_assignments} ra ON ra.contextid = ctx.id AND ra.userid = ue.userid
                         JOIN {role} r ON r.id = ra.roleid AND r.shortname = 'student'
                         WHERE ue.status = 0 AND e.courseid = :courseid";
-                $cnt = $DB->count_records_sql($sql, ['courseid' => $PAGE->course->id]);
+                $cnt = (int)$DB->count_records_sql($sql, ['courseid' => $PAGE->course->id]);
+
+                // Fallback: some test setups or unusual enrolment flows may not have role_assignments
+                // present. In that case, count distinct active enrolments as a safe fallback.
+                if ($cnt === 0) {
+                    $fallbacksql = "SELECT COUNT(DISTINCT ue.userid)
+                        FROM {user_enrolments} ue
+                        JOIN {enrol} e ON e.id = ue.enrolid
+                        WHERE ue.status = 0 AND e.courseid = :courseid";
+                    $cnt = (int)$DB->count_records_sql($fallbacksql, ['courseid' => $PAGE->course->id]);
+                }
+
                 $replace['/\{coursecount students:active\}/i'] = $cnt;
             }
 
@@ -3199,69 +3359,9 @@ class text_filter extends \filtercodes_base_text_filter {
                 $replace['/\{courseidnumber\}/i'] = $PAGE->course->idnumber;
             }
 
-            // Tag: {coursename}.
-            // Description: The full name of a course, or the site name if not in a course.
-            // Parameters: None.
-            if (stripos($text, '{coursename') !== false) {
-                if (stripos($text, '{coursename}') !== false) {
-                    // No course ID was specified.
-                    $course = $PAGE->course;
-                    if ($course->id == $SITE->id) { // If not in a course, use the site name.
-                        $coursecontext = \context_system::instance();
-                        $replace['/\{coursename\}/i'] = format_string(
-                            $SITE->fullname,
-                            true,
-                            ['context' => $coursecontext]
-                        );
-                    } else { // If in a course - use course full name.
-                        $coursecontext = \context_course::instance($course->id);
-                        $replace['/\{coursename\}/i'] = format_string(
-                            $course->fullname,
-                            true,
-                            ['context' => $coursecontext]
-                        );
-                    }
-                }
-                if (stripos($text, '{coursename ') !== false) {
-                    // Course ID was specified.
-                    preg_match_all('/\{coursename ([0-9]+)\}/', $text, $matches);
-                    // Eliminate course IDs.
-                    $courseids = array_unique($matches[1]);
-                    $coursecontext = \context_system::instance();
-                    foreach ($courseids as $id) {
-                        $course = $DB->get_record('course', ['id' => $id]);
-                        if (!empty($course)) {
-                            $replace['/\{coursename ' . $course->id . '\}/isuU'] = format_string(
-                                $course->fullname,
-                                true,
-                                ['context' => $coursecontext]
-                            );
-                        }
-                    }
-                    unset($matches, $course, $courseids, $id);
-                }
-            }
-
             if (stripos($text, '{courseimage') !== false) {
                 $course = $PAGE->course;
-                if ($CFG->branch >= 33) {
-                    $imgurl = \core_course\external\course_summary_exporter::get_course_image($course);
-                } else { // Previous to Moodle 3.3.
-                    $imgurl = '';
-                    $context = \context_course::instance($course->id);
-                    if ($course instanceof stdClass) {
-                        $course = new \core_course_list_element($course);
-                    }
-                    $coursefiles = $course->get_course_overviewfiles();
-                    foreach ($coursefiles as $file) {
-                        if ($isimage = $file->is_valid_image()) {
-                            $filename = '/' . $file->get_contextid() . '/' . $file->get_component()
-                                . '/' . $file->get_filearea() . $file->get_filepath() . $file->get_filename();
-                            $imgurl = file_encode_url("/pluginfile.php", $filename, !$isimage);
-                            break;
-                        }
-                    }
-                }
+                $imgurl = \core_course\external\course_summary_exporter::get_course_image($course);
                 if (empty($imgurl)) {
                     global $OUTPUT;
                     $imgurl = $OUTPUT->get_generated_image_for_id($course->id);
@@ -3537,7 +3637,7 @@ class text_filter extends \filtercodes_base_text_filter {
 
                 // Messages to display if not enrolled in any courses or have not yet completed some courses.
                 // Start by assuming that we are not enrolled in any courses.
-                $emptylist = get_string(($CFG->branch >= 29 ? 'notenrolled' : 'nocourses'), 'grades');
+                $emptylist = get_string(('notenrolled'), 'grades');
                 $emptycclist = $emptylist;
                 if (!empty($mycourses)) { // Enrolled in some courses.
                     $emptylist = '';
@@ -3746,12 +3846,7 @@ class text_filter extends \filtercodes_base_text_filter {
             // Parameters: None.
             if (stripos($text, '{categories}') !== false) {
                 // Retrieve list of all categories.
-                if ($CFG->branch >= 36) { // Moodle 3.6+.
-                    $categories = \core_course_category::make_categories_list();
-                } else {
-                    require_once($CFG->libdir . '/coursecatlib.php');
-                    $categories = coursecat::make_categories_list();
-                }
+                $categories = \core_course_category::make_categories_list();
                 $list = '';
                 foreach ($categories as $id => $name) {
                     $list .= '<li><a href="' .
@@ -3768,12 +3863,7 @@ class text_filter extends \filtercodes_base_text_filter {
             // Parameters: None.
             if (stripos($text, '{categoriesmenu}') !== false) {
                 // Retrieve list of all categories.
-                if ($CFG->branch >= 36) { // Moodle 3.6+.
-                    $categories = \core_course_category::make_categories_list();
-                } else {
-                    require_once($CFG->libdir . '/coursecatlib.php');
-                    $categories = coursecat::make_categories_list();
-                }
+                $categories = \core_course_category::make_categories_list();
                 $list = '';
                 foreach ($categories as $id => $name) {
                     $list .= '-' . $this->format_custommenuitem($name) . '|/course/index.php?categoryid=' . $id . PHP_EOL;
@@ -3848,6 +3938,13 @@ class text_filter extends \filtercodes_base_text_filter {
             // Description: An unordered list of links to categories in the same level as the current course.
             // Parameters: None.
             if (stripos($text, '{categoriesx}') !== false) {
+                if (empty($PAGE->course->category)) {
+                    // If we are not in a course, check if categoryid is part of URL (ex: course lists).
+                    $catid = optional_param('categoryid', 0, PARAM_INT);
+                } else {
+                    // Retrieve the category id of the course we are in.
+                    $catid = $PAGE->course->category;
+                }
                 $sql = "SELECT cc.id, cc.sortorder, cc.name, cc.visible, cc.parent
                         FROM {course_categories} cc
                         WHERE cc.parent = $catid AND cc.visible = 1
@@ -3868,6 +3965,13 @@ class text_filter extends \filtercodes_base_text_filter {
             // Description: A list of links to categories in the same level as the current course - for use in the custom menu.
             // Parameters: None.
             if (stripos($text, '{categoriesxmenu}') !== false) {
+                if (empty($PAGE->course->category)) {
+                    // If we are not in a course, check if categoryid is part of URL (ex: course lists).
+                    $catid = optional_param('categoryid', 0, PARAM_INT);
+                } else {
+                    // Retrieve the category id of the course we are in.
+                    $catid = $PAGE->course->category;
+                }
                 $sql = "SELECT cc.id, cc.sortorder, cc.name, cc.visible, cc.parent
                         FROM {course_categories} cc
                         WHERE cc.parent = $catid AND cc.visible = 1
@@ -4176,97 +4280,76 @@ class text_filter extends \filtercodes_base_text_filter {
             }
 
             // Tag: {ifactivitycompleted coursemoduleid}...{/ifactivitycompleted}.
-            // Description: Will display content if the specified activity has been completed.
-            // Required Parameter: coursemoduleid is the id of the instance of the content module.
-            // Requires content between tags.
-            if (stripos($text, '{/ifactivitycompleted}') !== false) {
-                $completion = new \completion_info($PAGE->course);
-
-                if ($completion->is_enabled_for_site() && $completion->is_enabled() == COMPLETION_ENABLED) {
-                    // Get a list of the the instances of this tag.
-                    $re = '/{ifactivitycompleted\s+([0-9]+)\}(.*)\{\/ifactivitycompleted\}/isuU';
-                    $found = preg_match_all($re, $text, $matches);
-
-                    if ($found > 0) {
-                        // Check if the activity is in the list.
-                        foreach ($matches[1] as $cmid) {
-                            $iscompleted = false;
-
-                            // Only process valid IDs.
-                            if (($cm = \get_coursemodule_from_id('', $cmid, 0)) !== false) {
-                                // Get the completion data for this activity if it exists.
-                                try {
-                                    $data = $completion->get_data($cm, false, $USER->id);
-                                    $iscompleted = ($data->completionstate > COMPLETION_INCOMPLETE); // A completed state.
-                                } catch (\moodle_exception $e) {
-                                    // Handle Moodle-specific exceptions.
-                                    unset($e);
-                                    continue;
-                                } catch (\Exception $e) {
-                                    unset($e);
-                                    continue;
-                                }
-                            }
-
-                            // If the activity has been completed, remove just the tags. Otherwise remove tags and content.
-                            $key = '/{ifactivitycompleted\s+' . $cmid . '\}(.*)\{\/ifactivitycompleted\}/isuU';
-                            if ($iscompleted) {
-                                // Completed. Keep the text and remove the tags.
-                                $replace[$key] = "$1";
-                            } else {
-                                // Activity not completed. Remove tags and content.
-                                $replace[$key] = '';
-                            }
-                        }
-                    }
-                }
-            }
-
             // Tag: {ifnotactivitycompleted coursemoduleid}...{/ifnotactivitycompleted}.
-            // Description: Will display content if the specified activity has been completed.
-            // Required Parameter: coursemoduleid is the id of the instance of the content module.
-            // Requires content between tags.
-            if (stripos($text, '{/ifnotactivitycompleted}') !== false) {
+            if (
+                (stripos($text, '{ifactivitycompleted') !== false && stripos($text, '{/ifactivitycompleted}') !== false)
+                || (stripos($text, '{ifnotactivitycompleted') !== false && stripos($text, '{/ifnotactivitycompleted}') !== false)
+            ) {
                 $completion = new \completion_info($PAGE->course);
 
-                if ($completion->is_enabled_for_site() && $completion->is_enabled() == COMPLETION_ENABLED) {
-                    // Get a list of the the instances of this tag.
-                    $re = '/{ifnotactivitycompleted\s+([0-9]+)\}(.*)\{\/ifnotactivitycompleted\}/isuU';
-                    $found = preg_match_all($re, $text, $matches);
-
-                    if ($found > 0) {
-                        // Check if the activity is in the list.
-                        foreach ($matches[1] as $cmid) {
-                            $iscompleted = false;
-
-                            // Only process valid IDs.
-                            if (($cm = \get_coursemodule_from_id('', $cmid, 0)) !== false) {
-                                // Get the completion data for this activity if it exists.
-                                try {
-                                    $data = $completion->get_data($cm, false, $USER->id);
-                                    $iscompleted = ($data->completionstate > COMPLETION_INCOMPLETE); // A completed state.
-                                } catch (\moodle_exception $e) {
-                                    // Handle Moodle-specific exceptions.
-                                    unset($e);
-                                    continue;
-                                } catch (\Exception $e) {
-                                    unset($e);
-                                    continue;
-                                }
-                            }
-
-                            // If the activity has been completed, remove just the tags. Otherwise remove tags and content.
-                            $key = '/{ifnotactivitycompleted\s+' . $cmid . '\}(.*)\{\/ifnotactivitycompleted\}/isuU';
-                            if (!$iscompleted) {
-                                // Completed. Keep the text and remove the tags.
-                                $replace[$key] = "$1";
-                            } else {
-                                // Activity not completed. Remove tags and content.
-                                $replace[$key] = '';
+                // Tag: {ifactivitycompleted coursemoduleid}...{/ifactivitycompleted}.
+                // Description: Will display content if the specified activity has been completed.
+                // Required Parameter: coursemoduleid is the id of the instance of the content module.
+                // Requires content between tags.
+                $this->if_tag(
+                    $text,
+                    $replace,
+                    'ifactivitycompleted',
+                    function ($cmid) use ($USER, $completion) {
+                        // Only process valid IDs.
+                        if (($cm = \get_coursemodule_from_id('', $cmid, 0)) !== false) {
+                            // Get the completion data for this activity if it exists.
+                            try {
+                                $data = $completion->get_data($cm, false, $USER->id);
+                                // Only COMPLETE and COMPLETE_PASS count as completed; COMPLETE_FAIL does not.
+                                return \in_array(
+                                    (int) $data->completionstate,
+                                    [COMPLETION_COMPLETE, COMPLETION_COMPLETE_PASS],
+                                    true
+                                );
+                            } catch (\moodle_exception $e) {
+                                // Handle Moodle-specific exceptions.
+                                unset($e);
+                            } catch (\Exception $e) {
+                                unset($e);
                             }
                         }
-                    }
-                }
+
+                        return -1;
+                    },
+                );
+
+                // Tag: {ifnotactivitycompleted coursemoduleid}...{/ifnotactivitycompleted}.
+                // Description: Will display content if the specified activity has been completed.
+                // Required Parameter: coursemoduleid is the id of the instance of the content module.
+                // Requires content between tags.
+                $this->if_tag(
+                    $text,
+                    $replace,
+                    'ifnotactivitycompleted',
+                    function ($cmid) use ($USER, $completion) {
+                        // Only process valid IDs.
+                        if (($cm = \get_coursemodule_from_id('', $cmid, 0)) !== false) {
+                            // Get the completion data for this activity if it exists.
+                            try {
+                                $data = $completion->get_data($cm, false, $USER->id);
+                                // COMPLETE_FAIL is treated as not completed (matches Moodle completion logic).
+                                return !\in_array(
+                                    (int) $data->completionstate,
+                                    [COMPLETION_COMPLETE, COMPLETION_COMPLETE_PASS],
+                                    true
+                                );
+                            } catch (\moodle_exception $e) {
+                                // Handle Moodle-specific exceptions.
+                                unset($e);
+                            } catch (\Exception $e) {
+                                unset($e);
+                            }
+                        }
+
+                        return -1;
+                    },
+                );
             }
 
             // Tag: {ifprofile_field_shortname}...{ifprofile_field_shortname}.
@@ -4324,73 +4407,55 @@ class text_filter extends \filtercodes_base_text_filter {
             // 'in' to check if the value is in the fields content.
             // Parameters: "value": The text to compare the field against.
             // Requires content between tags.
-            if (stripos($text, '{/ifprofile}') !== false) {
+            if (stripos($text, '{/ifprofile}') !== false && stripos($text, '{ifprofile') !== false) {
                 // Retrieve all custom profile fields and specified core fields.
                 $corefields = ['id', 'username', 'auth', 'idnumber', 'email', 'institution',
                     'department', 'city', 'country', 'timezone', 'lang'];
                 $profilefields = $this->getuserprofilefields($USER, $corefields);
 
-                // Find all ifprofile tags.
-                $re = '/{ifprofile\s+(\w+)\s+(is|not|contains|in)\s+"([^}]*)"}(.*){\/ifprofile}/isuU';
-                $found = preg_match_all($re, $text, $matches);
-                if ($found > 0) {
-                    foreach ($matches[1] as $key => $match) {
-                        $fieldname = $matches[1][$key];
-                        $string = $matches[0][$key]; // String found in $text.
-                        $operator = $matches[2][$key];
-                        $value = $matches[3][$key];
+                $this->if_tag(
+                    $text,
+                    $replace,
+                    'ifprofile',
+                    function ($args) use ($profilefields) {
+                        $re = '/^(\w+)\s+(is|not|contains|in)\s+"(.*)"$/isuU';
+                        if (!preg_match($re, $args, $matches)) {
+                            return -1;
+                        }
+                        $fieldname = $matches[1];
+                        $operator = $matches[2];
+                        $value = $matches[3];
 
-                        // Do not process tag if the specified profile field name does not exist or user is not logged in.
+                        // Skip if profile field does not exist or user is not logged in.
+                        // 'not' still matches in that case; other operators do not.
                         if (!array_key_exists($fieldname, $profilefields) || !isloggedin() || isguestuser()) {
-                            if ($operator == 'not') {
-                                // It will always meet criteria of a "not" if the user doesn't have a profile.
-                                $replace['/' . preg_quote($string, '/') . '/isuU'] = $matches[4][$key];
-                            } else {
-                                // It will never match the criteria "is", "contains" or "in" if the user doesn't have a profile.
-                                $replace['/' . preg_quote($string, '/') . '/isuU'] = '';
-                            }
-                            continue;
+                            return $operator === 'not';
                         }
 
                         if (!empty($value)) {
                             $value = trim($value, '"'); // Trim quotation marks.
                         }
 
-                        $content = '';
+                        $fieldvalue = $profilefields[$fieldname]->value;
                         switch ($operator) {
                             case 'is':
-                                // If the specified field is exactly the specified value.
                                 // Example: {ifprofile country is "CA"}...{/ifprofile}.
                                 // Example: {ifprofile city is ""}...{/ifprofile}.
-                                if ($profilefields[$fieldname]->value === $value) {
-                                    $content = $matches[4][$key];
-                                }
-                                break;
+                                return $fieldvalue === $value;
                             case 'not':
                                 // Example: {ifprofile country not "CA"}...{/ifprofile}.
                                 // Example: {ifprofile institution not ""}...{/ifprofile}.
-                                if ($profilefields[$fieldname]->value !== $value) {
-                                    $content = $matches[4][$key];
-                                }
-                                break;
+                                return $fieldvalue !== $value;
                             case 'contains':
-                                // If the specified field contains the specified value.
-                                // Example:{ifprofile email contains "@yoursite.com"}...{/ifprofile}.
-                                if (strpos($profilefields[$fieldname]->value, $value) !== false) {
-                                    $content = $matches[4][$key];
-                                }
-                                break;
+                                // Example: {ifprofile email contains "@yoursite.com"}...{/ifprofile}.
+                                return strpos($fieldvalue, $value) !== false;
                             case 'in':
-                                // If the specified value contains the value specified in the field.
                                 // Example: {ifprofile country in "CA,US,UK,AU,NZ"}...{/ifprofile}.
-                                if (strpos($value, $profilefields[$fieldname]->value) !== false) {
-                                    $content = $matches[4][$key];
-                                }
-                                break;
+                                return strpos($value, $fieldvalue) !== false;
                         }
-                        $replace['/' . preg_quote($string, '/') . '/isuU'] = $content;
+                        return false;
                     }
-                }
+                );
             }
 
             // Tag: {ifmobile}...{/ifmobile}.
@@ -4583,12 +4648,12 @@ class text_filter extends \filtercodes_base_text_filter {
                 // If Request a course is enabled...
                 $context = \context_system::instance();
                 if (empty($CFG->enablecourserequests) || !has_capability('moodle/course:request', $context)) {
+                    // If Request a Course is not enabled, remove the ifcourserequests tags and contained content.
+                    $replace['/\{ifcourserequests\}(.*)\{\/ifcourserequests\}/isuU'] = '';
+                } else {
                     // Just remove the tags.
                     $replace['/\{ifcourserequests\}/i'] = '';
                     $replace['/\{\/ifcourserequests\}/i'] = '';
-                } else {
-                    // If Request a Course is not enabled, remove the ifcourserequests tags and contained content.
-                    $replace['/\{ifcourserequests\}(.*)\{\/ifcourserequests\}/isuU'] = '';
                 }
             }
 
@@ -4674,7 +4739,7 @@ class text_filter extends \filtercodes_base_text_filter {
                     $replace['/\{ifinsection\}(.*)\{\/ifinsection\}/isuU'] = '';
                 }
             } else {
-                if ($this->hasarchetype('student')) { // If user is enrolled in the course.
+                if ($this->hasarchetype('student')) { // If user is enrolled in the course as a student archetype.
                     // Remove the {ifnotincourse} strings if in a course.
                     if (stripos($text, '{ifnotincourse}') !== false) {
                         $replace['/\{ifnotincourse\}(.*)\{\/ifnotincourse\}/isuU'] = '';
@@ -4943,7 +5008,7 @@ class text_filter extends \filtercodes_base_text_filter {
             // Requires content between tags.
             if (stripos($text, '{ifdev}') !== false) {
                 // If an administrator with debugging is set to DEVELOPER mode...
-                if ($CFG->debugdisplay == 1 && is_siteadmin() && !is_role_switched($PAGE->course->id)) {
+                if ($CFG->debug == DEBUG_DEVELOPER && is_siteadmin() && !is_role_switched($PAGE->course->id)) {
                     // Just remove the tags.
                     $replace['/\{ifdev\}/i'] = '';
                     $replace['/\{\/ifdev\}/i'] = '';
@@ -4957,144 +5022,135 @@ class text_filter extends \filtercodes_base_text_filter {
             // Description: Display content if the user is a member of the specified group.
             // Required Parameters: group id or idnumber.
             // Requires content between tags.
-            if (stripos($text, '{ifingroup') !== false) {
-                if (!isset($mygroupslist)) { // Fetch my groups.
-                    $mygroupslist = groups_get_all_groups($PAGE->course->id, $USER->id);
-                }
-                $re = '/{ifingroup\s+(.*)\}(.*)\{\/ifingroup\}/isuU';
-                $found = preg_match_all($re, $text, $matches);
-                if ($found > 0) {
-                    foreach ($matches[1] as $groupid) {
-                        $key = '/{ifingroup\s+' . $groupid . '\}(.*)\{\/ifingroup\}/isuU';
-                        $ismember = false;
-                        foreach ($mygroupslist as $group) {
-                            if ($groupid == $group->id || $groupid == $group->idnumber) {
-                                $ismember = true;
-                                break;
-                            }
-                        }
-                        if ($ismember) { // Just remove the tags.
-                            $replace[$key] = '$1';
-                        } else { // Remove the ifingroup tags and content.
-                            $replace[$key] = '';
-                        }
-                    }
-                }
-            }
-
-            // Tag: {ifnotingroup...}...{/ifnotingroup} with and without parameters.
-            if (stripos($text, '{ifnotingroup') !== false) {
-                // Tag: {ifnotingroup}...{/ifnotingroup}.
-                // Description: Display content if the user is NOT a member of any group.
-                // Required Parameters: None.
-                // Requires content between tags.
-                if (stripos($text, '{ifnotingroup}') !== false) {
+            $this->if_tag(
+                $text,
+                $replace,
+                'ifingroup',
+                function ($groupid) use (&$mygroupslist, $PAGE, $USER) {
                     if (!isset($mygroupslist)) { // Fetch my groups.
                         $mygroupslist = groups_get_all_groups($PAGE->course->id, $USER->id);
                     }
+
+                    $ismember = false;
+                    foreach ($mygroupslist as $group) {
+                        if ($groupid == $group->id || $groupid == $group->idnumber) {
+                            $ismember = true;
+                            break;
+                        }
+                    }
+
+                    return $ismember;
+                },
+            );
+
+            // Tag: {ifnotingroup}...{/ifnotingroup}.
+            // Description: Display content if the user is NOT a member of any group.
+            // Required Parameters: None.
+            // Requires content between tags.
+
+            // Tag: {ifnotingroup id|idnumber}...{/ifnotingroup}.
+            // Description: Display content if the user is NOT a member of the specified group.
+            // Required Parameters: group id or idnumber.
+            // Requires content between tags.
+            $this->if_tag(
+                $text,
+                $replace,
+                'ifnotingroup',
+                function ($groupid) use (&$mygroupslist, $PAGE, $USER) {
+                    if (!isset($mygroupslist)) { // Fetch my groups.
+                        $mygroupslist = groups_get_all_groups($PAGE->course->id, $USER->id);
+                    }
+
                     if (empty($mygroupslist)) {
-                        // User is not in any group, just remove the tags.
-                        $replace['/\{ifnotingroup\}/i'] = '';
-                        $replace['/\{\/ifnotingroup\}/i'] = '';
-                    } else {
-                        // User is in at least one group, remove tags and content.
-                        $replace['/\{ifnotingroup\}(.*)\{\/ifnotingroup\}/isuU'] = '';
+                        return true;
                     }
-                }
 
-                // Tag: {ifnotingroup id|idnumber}...{/ifnotingroup}.
-                // Description: Display content if the user is NOT a member of the specified group.
-                // Required Parameters: group id or idnumber.
-                // Requires content between tags.
-                if (stripos($text, '{ifnotingroup') !== false) {
-                    if (!isset($mygroupslist)) { // Fetch my groups.
-                        $mygroupslist = groups_get_all_groups($PAGE->course->id, $USER->id);
+                    if (empty($groupid)) {
+                        // My groups list is not empty, but no group id was specified.
+                        return false;
                     }
-                    $re = '/{ifnotingroup\s+(.*)\}(.*)\{\/ifnotingroup\}/isuU';
-                    $found = preg_match_all($re, $text, $matches);
-                    if ($found > 0) {
-                        foreach ($matches[1] as $groupid) {
-                            $key = '/{ifnotingroup\s+' . $groupid . '\}(.*)\{\/ifnotingroup\}/isuU';
-                            $ismember = false;
-                            foreach ($mygroupslist as $group) {
-                                if ($groupid == $group->id || $groupid == $group->idnumber) {
-                                    $ismember = true;
-                                    break;
-                                }
-                            }
-                            if ($ismember) { // Remove the ifnotingroup tags and content.
-                                $replace[$key] = '';
-                            } else { // Just remove the tags and keep the content.
-                                $replace[$key] = '$1';
-                            }
+
+                    $ismember = false;
+                    foreach ($mygroupslist as $group) {
+                        if ($groupid == $group->id || $groupid == $group->idnumber) {
+                            $ismember = true;
+                            break;
                         }
                     }
-                }
-            }
+
+                    return !$ismember;
+                },
+            );
 
             // Tag: {ifingrouping id|idnumber}...{/ifingrouping}.
             // Description: Display content if the user is a member of the specified grouping.
             // Required Parameters: group id or idnumber.
             // Requires content between tags.
-            if (stripos($text, '{ifingrouping') !== false) {
-                if (!isset($mygroupingslist)) {
-                    $mygroupingslist = $this->getusergroupings($PAGE->course->id, $USER->id);
-                }
-                $re = '/{ifingrouping\s+(.*)\}(.*)\{\/ifingrouping\}/isuU';
-                $found = preg_match_all($re, $text, $matches);
-                if ($found > 0) {
-                    foreach ($matches[1] as $groupingid) {
-                        $key = '/{ifingrouping\s+' . $groupingid . '\}(.*)\{\/ifingrouping\}/isuU';
-                        $ismember = false;
-                        foreach ($mygroupingslist as $grouping) {
-                            if ($groupingid == $grouping->id || $groupingid == $grouping->idnumber) {
-                                $ismember = true;
-                                break;
-                            }
-                        }
-                        if ($ismember) { // Just remove the tags.
-                            $replace[$key] = '$1';
-                        } else { // Remove the ifingroup tags and content.
-                            $replace[$key] = '';
+            $this->if_tag(
+                $text,
+                $replace,
+                'ifingrouping',
+                function ($groupingid) use (&$mygroupingslist, $PAGE, $USER) {
+                    if (!isset($mygroupingslist)) {
+                        $mygroupingslist = $this->getusergroupings($PAGE->course->id, $USER->id);
+                    }
+
+                    $ismember = false;
+                    foreach ($mygroupingslist as $grouping) {
+                        if ($groupingid == $grouping->id || $groupingid == $grouping->idnumber) {
+                            $ismember = true;
+                            break;
                         }
                     }
-                }
-            }
+
+                    return $ismember;
+                },
+            );
+
+            // Tag: {ifnotingrouping}...{/ifnotingrouping}.
+            // Description: Display content if the user is NOT a member of any grouping.
+            // Required Parameters: None.
+            // Requires content between tags.
 
             // Tag: {ifnotingrouping id|idnumber}...{/ifnotingrouping}.
             // Description: Display content if the user is NOT a member of the specified grouping.
             // Required Parameters: group id or idnumber.
             // Requires content between tags.
-            if (stripos($text, '{ifnotingrouping') !== false) {
-                if (!isset($mygroupingslist)) {
-                    $mygroupingslist = $this->getusergroupings($PAGE->course->id, $USER->id);
-                }
-                $re = '/{ifnotingrouping\s+(.*)\}(.*)\{\/ifnotingrouping\}/isuU';
-                $found = preg_match_all($re, $text, $matches);
-                if ($found > 0) {
-                    foreach ($matches[1] as $groupingid) {
-                        $key = '/{ifnotingrouping\s+' . $groupingid . '\}(.*)\{\/ifnotingrouping\}/isuU';
-                        $ismember = false;
-                        foreach ($mygroupingslist as $grouping) {
-                            if ($groupingid == $grouping->id || $groupingid == $grouping->idnumber) {
-                                $ismember = true;
-                                break;
-                            }
-                        }
-                        if ($ismember) { // Remove the ifnotingroup tags and content.
-                            $replace[$key] = '';
-                        } else { // Just remove the tags and keep the content.
-                            $replace[$key] = '$1';
+            $this->if_tag(
+                $text,
+                $replace,
+                'ifnotingrouping',
+                function ($groupingid) use (&$mygroupingslist, $PAGE, $USER) {
+                    if (!isset($mygroupingslist)) { // Fetch my groups.
+                        $mygroupingslist = $this->getusergroupings($PAGE->course->id, $USER->id);
+                    }
+
+                    if (empty($mygroupingslist)) {
+                        return true;
+                    }
+
+                    if (empty($groupingid)) {
+                        // My groupings list is not empty, but no grouping id was specified.
+                        return false;
+                    }
+
+                    $ismember = false;
+                    foreach ($mygroupingslist as $grouping) {
+                        if ($groupingid == $grouping->id || $groupingid == $grouping->idnumber) {
+                            $ismember = true;
+                            break;
                         }
                     }
-                }
-            }
+
+                    return !$ismember;
+                },
+            );
 
             // Tag: {iftenant idnumber|tenantid}...{/iftenant}.
             // Description: Display content only if the user is part of the specified tenant on Moodle Workplace.
             // Required Parameter: tenant idnumber or tenantid.
             // Requires content between tags.
-            if (stripos($text, '{iftenant') !== false) {
+            if (stripos($text, '{iftenant') !== false && stripos($text, '{/iftenant}') !== false) {
                 if (class_exists('tool_tenant\tenancy')) {
                     // Moodle Workplace.
                     $tenants = \tool_tenant\tenancy::get_tenants();
@@ -5115,20 +5171,15 @@ class text_filter extends \filtercodes_base_text_filter {
                         $currenttenantidnumber = $tenant->idnumber ? $tenant->idnumber : $tenant->id;
                     }
                 }
-                $re = '/{iftenant\s+(.*)\}(.*)\{\/iftenant\}/isuU';
-                $found = preg_match_all($re, $text, $matches);
-                if ($found > 0) {
-                    foreach ($matches[1] as $tenantid) {
-                        $key = '/{iftenant\s+' . $tenantid . '\}(.*)\{\/iftenant\}/isuU';
-                        if ($tenantid == $currenttenantidnumber) {
-                            // Just remove the tags.
-                            $replace[$key] = '$1';
-                        } else {
-                            // Remove the iftenant strings.
-                            $replace[$key] = '';
-                        }
+
+                $this->if_tag(
+                    $text,
+                    $replace,
+                    "iftenant",
+                    function ($tenantid) use ($currenttenantidnumber) {
+                        return $tenantid == $currenttenantidnumber;
                     }
-                }
+                );
             }
 
             // Tag: {ifworkplace}...{/ifworkplace}.
@@ -5150,105 +5201,77 @@ class text_filter extends \filtercodes_base_text_filter {
             // Description: Display content only if user has the role specified by shortrolename in the current context.
             // Parameters: Short role name.
             // Requires content between tags.
-            if (stripos($text, '{ifcustomrole') !== false) {
-                $re = '/{ifcustomrole\s+(.*)\}(.*)\{\/ifcustomrole\}/isuU';
-                $found = preg_match_all($re, $text, $matches);
-                if ($found > 0) {
-                    $context = $PAGE->context;
-                    if ($context->contextlevel == CONTEXT_COURSE) {
-                        // We are in a course.
-                        $context = \context_course::instance($context->instanceid);
-                    } else if ($context->contextlevel == CONTEXT_MODULE) {
-                        // We are in an activity.
-                        $cm = get_coursemodule_from_id('', $context->instanceid, 0, false, MUST_EXIST);
-                        $context = \context_module::instance($cm->id);
-                        unset($cm);
-                    }
-
-                    // Get roles within this context.
-                    $roles = get_user_roles($context, $USER->id, true);
-                    $roles = array_column($roles, 'shortname');
-                    unset($context);
-
-                    // Replace all instances of a given ifcustomrole tag.
-                    foreach ($matches[1] as $roleshortname) {
-                        $key = '/{ifcustomrole\s+' . $roleshortname . '\}(.*)\{\/ifcustomrole\}/isuU';
-                        // We have a role that matches this tag.
-                        if (in_array($roleshortname, $roles)) {
-                            // Just remove the tags.
-                            $replace[$key] = '$1';
-                        } else {
-                            // Otherwise, remove the ifcustomrole tags and the string inside it.
-                            $replace[$key] = '';
-                        }
-                        unset($key);
-                    }
+            if (stripos($text, '{ifcustomrole') !== false && stripos($text, '{/ifcustomrole}') !== false) {
+                $context = $PAGE->context;
+                if ($context->contextlevel == CONTEXT_COURSE) {
+                    // We are in a course.
+                    $context = \context_course::instance($context->instanceid);
+                } else if ($context->contextlevel == CONTEXT_MODULE) {
+                    // We are in an activity.
+                    $cm = get_coursemodule_from_id('', $context->instanceid, 0, false, MUST_EXIST);
+                    $context = \context_module::instance($cm->id);
+                    unset($cm);
                 }
-                unset($re);
-                unset($found);
+
+                // Get roles within this context.
+                $roles = get_user_roles($context, $USER->id, true);
+                $roles = array_column($roles, 'shortname');
+                unset($context);
+
+                $this->if_tag(
+                    $text,
+                    $replace,
+                    'ifcustomrole',
+                    function ($roleshortname) use ($roles) {
+                        return in_array($roleshortname, $roles);
+                    }
+                );
             }
 
             // Tag: {ifnotcustomrole shortrolename}...{/ifnotcustomrole}.
             // Description: Display content only if user does NOT have the role specified by shortrolename in the current context.
             // Required Parameters: Short role name.
             // Requires content between tags.
-            if (stripos($text, '{ifnotcustomrole') !== false) {
-                $re = '/{ifnotcustomrole\s+(.*)\}(.*)\{\/ifnotcustomrole\}/isuU';
-                $found = preg_match_all($re, $text, $matches);
-                if ($found > 0) {
-                    $context = $PAGE->context;
-                    if ($context->contextlevel == CONTEXT_COURSE) {
-                        // We are in a course.
-                        $context = \context_course::instance($context->instanceid);
-                    } else if ($context->contextlevel == CONTEXT_MODULE) {
-                        // We are in an activity.
-                        $cm = get_coursemodule_from_id('', $context->instanceid, 0, false, MUST_EXIST);
-                        $context = \context_module::instance($cm->id);
-                        unset($cm);
-                    }
-
-                    // Get roles within this context.
-                    $roles = get_user_roles($context, $USER->id, true);
-                    $roles = array_column($roles, 'shortname');
-                    unset($context);
-
-                    // Replace all instances of a given ifnotcustomrole tag.
-                    foreach ($matches[1] as $roleshortname) {
-                        $key = '/{ifnotcustomrole\s+' . $roleshortname . '\}(.*)\{\/ifnotcustomrole\}/isuU';
-                        // We do not have a role that matches this tag.
-                        if (!in_array($roleshortname, $roles)) {
-                            // Just remove the tags.
-                            $replace[$key] = '$1';
-                        } else {
-                            // Otherwise, remove the ifnotcustomrole strings.
-                            $replace[$key] = '';
-                        }
-                        unset($key);
-                    }
+            if (stripos($text, '{ifnotcustomrole') !== false && stripos($text, '{/ifnotcustomrole}') !== false) {
+                $context = $PAGE->context;
+                if ($context->contextlevel == CONTEXT_COURSE) {
+                    // We are in a course.
+                    $context = \context_course::instance($context->instanceid);
+                } else if ($context->contextlevel == CONTEXT_MODULE) {
+                    // We are in an activity.
+                    $cm = get_coursemodule_from_id('', $context->instanceid, 0, false, MUST_EXIST);
+                    $context = \context_module::instance($cm->id);
+                    unset($cm);
                 }
-                unset($re);
-                unset($found);
+
+                // Get roles within this context.
+                $roles = get_user_roles($context, $USER->id, true);
+                $roles = array_column($roles, 'shortname');
+                unset($context);
+
+                $this->if_tag(
+                    $text,
+                    $replace,
+                    'ifnotcustomrole',
+                    function ($roleshortname) use ($roles) {
+                        return !in_array($roleshortname, $roles);
+                    }
+                );
             }
 
             // Tag: {ifhasarolename roleshortname}...{/ifhasarolename}.
             // Description: Display content only if user has the role specified by shortrolename ANYWHERE on the site.
             // Parameters: Short role name.
             // Requires content between tags.
-            if (stripos($text, '{ifhasarolename') !== false) {
-                $re = '/{ifhasarolename\s+(.*)\}(.*)\{\/ifhasarolename\}/isuU';
-                $found = preg_match_all($re, $text, $matches);
-                if ($found > 0) {
-                    foreach ($matches[1] as $roleshortname) {
-                        $key = '/{ifhasarolename\s+' . $roleshortname . '\}(.*)\{\/ifhasarolename\}/isuU';
-                        if ($this->hasarole($roleshortname, $USER->id)) {
-                            // Just remove the tags.
-                            $replace[$key] = '$1';
-                        } else {
-                            // Remove the ifhasarolename strings.
-                            $replace[$key] = '';
-                        }
+            if (stripos($text, '{ifhasarolename') !== false && stripos($text, '{/ifhasarolename}') !== false) {
+                $this->if_tag(
+                    $text,
+                    $replace,
+                    'ifhasarolename',
+                    function ($roleshortname) use ($USER) {
+                        return $this->hasarole($roleshortname, $USER->id);
                     }
-                }
+                );
             }
 
             // Tag: {iftheme themename}...{/iftheme}.
@@ -5404,14 +5427,14 @@ class text_filter extends \filtercodes_base_text_filter {
         // Tag: {chart <type> <value> <title>}
         // Description: Easily display a chart in one of several styles.
         // Required Parameters: type=radial|pie|progressbar|progresspie, value=0-100, title=Title of the chart.
-        if ($CFG->branch >= 32 && version_compare(PHP_VERSION, '7.0.0') >= 0 && stripos($text, '{chart ') !== false) {
+        if (stripos($text, '{chart ') !== false) {
             global $OUTPUT;
             preg_match_all('/\{chart\s(\w+)\s([0-9]+)((?:\s)(.*))?\}/isuU', $text, $matches, PREG_SET_ORDER);
             $matches = array_unique($matches, SORT_REGULAR);
             foreach ($matches as $match) {
                 $type = $match[1]; // Chart type: radial, pie, progressbar or progresspie.
                 $value = $match[2]; // Value between 0 and 100.
-                $match[3] = $match[3] == null ? '' : $match[3];
+                $match[3] = $match[3] ?? '';
                 $title = trim($match[3]); // Optional text label.
                 $percent = get_string('percents', '', $value);
                 switch ($type) { // Type of chart.
@@ -5424,9 +5447,7 @@ class text_filter extends \filtercodes_base_text_filter {
                         $series = new \core\chart_series('Percentage', [min($value, 100), 100 - min($value, 100)]);
                         $chart->add_series($series);
                         $chart->set_labels(['Completed', 'Remaining']);
-                        if ($CFG->branch >= 39) {
-                            $chart->set_legend_options(['display' => false]);  // Hide chart legend.
-                        }
+                        $chart->set_legend_options(['display' => false]);  // Hide chart legend.
                         $html = '<div class="fc-chart-pie">' . $OUTPUT->render_chart($chart, false) . '</div>';
                         break;
                     case 'pie': // Tag: {chart pie 99 Label to be displayed} - Display a pie chart.
@@ -5438,9 +5459,7 @@ class text_filter extends \filtercodes_base_text_filter {
                         $series = new \core\chart_series('Percentage', [min($value, 100), 100 - min($value, 100)]);
                         $chart->add_series($series);
                         $chart->set_labels(['Completed', 'Remaining']);
-                        if ($CFG->branch >= 39) {
-                            $chart->set_legend_options(['display' => false]);  // Hide chart legend.
-                        }
+                        $chart->set_legend_options(['display' => false]);  // Hide chart legend.
                         $html = '<div class="fc-chart-pie">' . $OUTPUT->render_chart($chart, false) . '</div>';
                         break;
                     case 'progressbar': // Tag: {chart progressbar 99 Label to be displayed} - Display a horizontal progress bar.
@@ -5627,7 +5646,7 @@ class text_filter extends \filtercodes_base_text_filter {
         // Parameters: None.
         // Requires content between tags.
         if (stripos($text, '{rawurlencode}') !== false) {
-            // Replace {urlencode} tags and content with encoded content.
+            // Replace {rawurlencode} tags and content with encoded content.
             $newtext = preg_replace_callback(
                 '/\{rawurlencode\}(.*)\{\/rawurlencode\}/isuU',
                 function ($matches) {
